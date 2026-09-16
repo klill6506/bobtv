@@ -147,3 +147,9 @@ just to work on this machine, since this session already has local access.
 - Renamed the optional Bob Cinema animation/sound trial to Preview intro and moved it to the sidebar. No automatic intro playback.
 - Fixed missing Netflix N by resolving SVG class-based colors to explicit fills before bundling.
 - Verified the desktop grid has three equal columns with no horizontal overflow, Netflix paths have red fills, the US filter works, and Home restores both regions.
+
+## GitHub and branding handoff — September 16
+- GitHub CLI authenticated as klill6506 using the OS keyring.
+- Private repository created: https://github.com/klill6506/bobtv ; origin tracks master. First project checkpoint pushed. This supersedes the earlier note that GitHub was not connected.
+- Shared branding folders: assets/branding/artwork, assets/branding/sound, assets/branding/concepts. Each is visible on GitHub with a README; the parent README documents naming and handoff.
+- Assets uploaded from other devices are not automatically deployed. Review Ken’s choice before wiring artwork/audio into the live interface.
