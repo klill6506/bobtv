@@ -153,3 +153,9 @@ just to work on this machine, since this session already has local access.
 - Private repository created: https://github.com/klill6506/bobtv ; origin tracks master. First project checkpoint pushed. This supersedes the earlier note that GitHub was not connected.
 - Shared branding folders: assets/branding/artwork, assets/branding/sound, assets/branding/concepts. Each is visible on GitHub with a README; the parent README documents naming and handoff.
 - Assets uploaded from other devices are not automatically deployed. Review Ken’s choice before wiring artwork/audio into the live interface.
+
+## Sunrise branding integrated — September 16
+- Pulled the supplied dark 4K background and integrated it with the transparent logo, blue selection colors and warm gold focus rings. Retained sidebar, three-column desktop grids and What’sOn link.
+- Approved splash image and WAV master replace the synthesized Bob Cinema trial. Fade intro lasts 4.1 seconds, once per tab session with manual Preview intro. Browser-blocked autoplay falls back to a silent intro with explanation. No global browser autoplay policy changed.
+- Exact branding route allowlist serves only the five needed assets; uploaded scripts and arbitrary paths remain inaccessible.
+- Validation: 20 Python tests passed, JS syntax passed; browser confirmed logo/background loading, three columns, recorded audio playing, automatic close, skip stopping audio/restoring focus, and no repeat on refresh. Physical TV audio still needs the at-home test.

@@ -1,14 +1,14 @@
 <!doctype html>
-<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BobTV</title><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>BobTV</title><link rel="icon" href="/branding/icon.png" type="image/png"><link rel="stylesheet" href="/style.css"><script src="/app.js" defer></script></head>
 <body><aside class="sidebar">
-<div class="brand">BOB<span>TV</span><small>YOUR EVENING, ON DEMAND</small></div>
+<div class="brand"><img src="/branding/logo.png" alt="BobTV" width="1774" height="887"><small>ENTERTAINMENT, INTELLIGENTLY.</small></div>
 <nav aria-label="BobTV menu">
 <button class="nav-item active" data-view="all" aria-pressed="true">Home</button>
 <a class="nav-item" href="https://whatson.kenlill.com/" target="_blank" rel="noopener noreferrer">Continue Watching <span>Open What’sOn ↗</span></a>
 <button class="nav-item" data-view="uk" aria-pressed="false">United Kingdom</button>
 <button class="nav-item" data-view="us" aria-pressed="false">United States</button>
 </nav>
-<div class="sidebar-bottom"><button class="nav-item" id="cinema-preview">Preview intro <span>Bob Cinema · with sound</span></button><button class="nav-item" id="fullscreen">Full screen</button><p>A little more you.<br>A lot to watch.</p></div>
+<div class="sidebar-bottom"><button class="nav-item" id="cinema-preview">Preview intro <span>Sunrise · with sound</span></button><button class="nav-item" id="fullscreen">Full screen</button><p>A little more you.<br>A lot to watch.</p></div>
 </aside><main>
 <header><p class="eyebrow">MAKE YOURSELF AT HOME</p><div class="topright"><span id="network">Checking connection…</span><time id="clock"></time></div></header>
 <div class="intro"><h1 id="page-title">What are we watching?</h1><p class="intro-note">Your favorites. One place to begin.</p></div>
@@ -17,4 +17,4 @@
 <div id="message" role="status" aria-live="polite">Choose a service to start watching.</div>
 <footer><span>Arrow keys to browse <b>·</b> Enter to open <b>·</b> Close streaming window to return</span></footer>
 <p class="connection-note">Switching regions changes the connection for this computer, including streams already open.</p>
-</main><dialog id="cinema" aria-labelledby="cinema-title"><div class="cinema-stage"><p class="cinema-kicker">THE EVENING IS YOURS</p><h2 id="cinema-title" class="cinema-logo">BOB<span>TV</span></h2><p class="cinema-caption">Make yourself at home.</p></div><button id="cinema-skip">Skip intro</button><p id="cinema-audio-status" role="status"></p></dialog></body></html>
+</main><dialog id="cinema" aria-label="BobTV sunrise intro"><div class="cinema-stage"><img id="splash-art" src="/branding/splash.png" alt="BobTV — Entertainment, intelligently. Sunrise over Earth, connecting Athens, Georgia and London." width="1672" height="941"></div><button id="cinema-skip">Skip intro</button><p id="cinema-audio-status" role="status"></p><audio id="cinema-sound" src="/branding/startup.wav" preload="auto"></audio></dialog></body></html>

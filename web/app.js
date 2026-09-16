@@ -6,7 +6,7 @@ async function request(path,options){const response=await fetch(path,options);co
 async function status(){try{document.querySelector('#network').textContent=(await request('/api/status')).label;}catch{document.querySelector('#network').textContent='Connection unavailable';}}
 function tell(text,error=false){message.textContent=text;message.classList.toggle('error',error);}
 async function launch(id,service,button){if(pending)return;pending=true;document.querySelectorAll('.tile').forEach(b=>b.disabled=true);tell(service.region==='uk'?'Checking the UK connection…':'Switching to home internet…');try{const data=await request('/api/launch',{method:'POST',headers:{'Content-Type':'application/json','X-BobTV-Token':token},body:JSON.stringify({service:id})});tell(data.message);}catch(e){tell(e.message,true);}finally{pending=false;document.querySelectorAll('.tile').forEach(b=>b.disabled=b.dataset.unavailable==='true');button.focus();status();}}
-async function init(){try{const data=await request('/api/catalog');token=data.token;catalog=data.services;for(const [id,service] of Object.entries(data.services)){const row=document.getElementById(service.region);if(!row)continue;const button=document.createElement('button');button.className='tile';button.dataset.id=id;button.setAttribute('aria-label','Open '+service.name);const mark=marks[id]||[service.name,'Streaming'];const logo=document.createElement('span');logo.className='logo-wrap';if(brandLogos[id]){const doc=new DOMParser().parseFromString(brandLogos[id],'image/svg+xml');logo.append(document.importNode(doc.documentElement,true));}else{logo.textContent=mark[0];}button.append(logo);const label=document.createElement('span');label.className='service-label';label.textContent=mark[0];button.append(label);button.addEventListener('click',()=>launch(id,service,button));row.append(button);}document.querySelector('.tile')?.focus();status();}catch(e){tell('Cannot load services. '+e.message,true);}}
+async function init(){try{const data=await request('/api/catalog');token=data.token;catalog=data.services;for(const [id,service] of Object.entries(data.services)){const row=document.getElementById(service.region);if(!row)continue;const button=document.createElement('button');button.className='tile';button.dataset.id=id;button.setAttribute('aria-label','Open '+service.name);const mark=marks[id]||[service.name,'Streaming'];const logo=document.createElement('span');logo.className='logo-wrap';if(brandLogos[id]){const doc=new DOMParser().parseFromString(brandLogos[id],'image/svg+xml');logo.append(document.importNode(doc.documentElement,true));}else{logo.textContent=mark[0];}button.append(logo);const label=document.createElement('span');label.className='service-label';label.textContent=mark[0];button.append(label);button.addEventListener('click',()=>launch(id,service,button));row.append(button);}if(!document.querySelector('#cinema').open)document.querySelector('.tile')?.focus();status();}catch(e){tell('Cannot load services. '+e.message,true);}}
 document.addEventListener('keydown',e=>{if(!['ArrowLeft','ArrowRight','ArrowUp','ArrowDown'].includes(e.key)||pending||document.querySelector('#cinema').open)return;const current=document.activeElement;const buttons=[...document.querySelectorAll('button:not(:disabled), a[href]')].filter(b=>b.getClientRects().length);if(!buttons.includes(current)){buttons[0]?.focus();return;}const a=current.getBoundingClientRect();const ax=a.x+a.width/2,ay=a.y+a.height/2;const horizontal=e.key==='ArrowLeft'||e.key==='ArrowRight',sign=e.key==='ArrowLeft'||e.key==='ArrowUp'?-1:1;const next=buttons.filter(b=>b!==current).map(b=>{const r=b.getBoundingClientRect(),dx=r.x+r.width/2-ax,dy=r.y+r.height/2-ay;return {b,primary:(horizontal?dx:dy)*sign,secondary:Math.abs(horizontal?dy:dx)};}).filter(x=>x.primary>5).sort((a,b)=>(a.primary+a.secondary*3)-(b.primary+b.secondary*3))[0];if(next){e.preventDefault();next.b.focus();}});
 document.querySelector('#fullscreen').addEventListener('click',async()=>{try{if(document.fullscreenElement)await document.exitFullscreen();else await document.documentElement.requestFullscreen();}catch{tell('Press F11 to toggle full screen.');}});
 function clock(){document.querySelector('#clock').textContent=new Date().toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}clock();setInterval(clock,1000);setInterval(()=>{if(!pending)status();},15000);init();
@@ -19,41 +19,35 @@ document.querySelectorAll('[data-view]').forEach(button=>button.addEventListener
  window.scrollTo({top:0,behavior:'instant'});
 }));
 
-// Original Bob Cinema sonic mark, synthesized locally; no audio downloads.
+// Approved sunrise artwork and WAV master; one automatic intro per tab session.
 const cinema=document.querySelector('#cinema');
-let cinemaTimer,cinemaAudio,cinemaReturn;
+const cinemaAudio=document.querySelector('#cinema-sound');
+let cinemaTimer,cinemaReturn,cinemaRun=0;
 function stopCinema(){
- clearTimeout(cinemaTimer);
- if(cinemaAudio){cinemaAudio.close().catch(()=>{});cinemaAudio=null;}
+ ++cinemaRun;clearTimeout(cinemaTimer);
+ cinemaAudio.pause();cinemaAudio.currentTime=0;
  if(cinema.open)cinema.close();
  cinema.classList.remove('playing');
- cinemaReturn?.focus();
+ (cinemaReturn?.matches('button,a')?cinemaReturn:document.querySelector('.tile'))?.focus();
 }
 async function playCinema(){
+ if(cinema.open)return;
+ const run=++cinemaRun;
  cinemaReturn=document.activeElement;
  cinema.showModal();cinema.classList.remove('playing');
  void cinema.offsetWidth;cinema.classList.add('playing');
  document.querySelector('#cinema-skip').focus();
  const audioStatus=document.querySelector('#cinema-audio-status');audioStatus.textContent='';
- cinemaTimer=setTimeout(stopCinema,2800);
- try{
-  const AudioEngine=window.AudioContext||window.webkitAudioContext;
-  const ctx=new AudioEngine();cinemaAudio=ctx;await ctx.resume();
-  if(!cinema.open||ctx.state==='closed')return;
-  if(ctx.state!=='running')throw Error('Sound unavailable');
-  const master=ctx.createGain();master.gain.value=.18;master.connect(ctx.destination);
-  function note(hz,start,duration,level){
-   const oscillator=ctx.createOscillator(),gain=ctx.createGain();
-   oscillator.type='sine';oscillator.frequency.value=hz;
-   gain.gain.setValueAtTime(0,start);gain.gain.linearRampToValueAtTime(level,start+.035);
-   gain.gain.exponentialRampToValueAtTime(.001,start+duration);
-   oscillator.connect(gain);gain.connect(master);oscillator.start(start);oscillator.stop(start+duration+.03);
-  }
-  const t=ctx.currentTime+.03;
-  note(293.665,t,1.15,.65);note(440,t+.3,1.2,.55);note(587.33,t+.6,1.35,.5);
-  [146.832,369.994,440,659.255].forEach(hz=>note(hz,t+.92,1.55,.2));
- }catch{audioStatus.textContent='Sound could not start. You can still preview the animation.';}
+ cinemaAudio.currentTime=0;cinemaAudio.volume=.5;
+ cinemaTimer=setTimeout(stopCinema,4100);
+ try{await cinemaAudio.play();}
+ catch{if(run===cinemaRun&&cinema.open)audioStatus.textContent='Silent intro — select Preview intro on Home to hear the sound.';}
 }
 document.querySelector('#cinema-preview').addEventListener('click',playCinema);
 document.querySelector('#cinema-skip').addEventListener('click',stopCinema);
 cinema.addEventListener('cancel',e=>{e.preventDefault();stopCinema();});
+window.addEventListener('pagehide',()=>{cinemaAudio.pause();clearTimeout(cinemaTimer);});
+window.addEventListener('load',()=>{
+ try{if(sessionStorage.getItem('bobtv-sunrise-seen'))return;sessionStorage.setItem('bobtv-sunrise-seen','true');}catch{return;}
+ playCinema();
+});

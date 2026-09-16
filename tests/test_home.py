@@ -95,3 +95,14 @@ class ServerTests(unittest.TestCase):
         with self.assertRaises(HTTPError) as error:
             urlopen(Request(self.base+'/api/catalog', headers={'Host':'evil.example'}))
         self.assertEqual(error.exception.code,403)
+
+    def test_branding_assets_and_private_files(self):
+        for route, kind in [('/branding/logo.png', 'image/png'), ('/branding/background.png', 'image/png'), ('/branding/splash.png', 'image/png'), ('/branding/icon.png', 'image/png'), ('/branding/startup.wav', 'audio/wav')]:
+            with urlopen(self.base + route) as response:
+                self.assertEqual(response.headers['Content-Type'], kind)
+                self.assertGreater(len(response.read()), 1000)
+        for route in ['/branding/../README.md', '/assets/branding/sound/source/master_take.py']:
+            with self.assertRaises(HTTPError) as error:
+                urlopen(self.base + route)
+            self.assertEqual(error.exception.code, 404)
+            error.exception.close()

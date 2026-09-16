@@ -29,7 +29,7 @@ def make_server(config_path, port=PORT):
             self.send_header('Content-Length', str(len(body)))
             self.send_header('Cache-Control', 'no-store')
             self.send_header('X-Content-Type-Options', 'nosniff')
-            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' https://image.tmdb.org; frame-ancestors 'none'; base-uri 'none'")
+            self.send_header('Content-Security-Policy', "default-src 'self'; script-src 'self'; style-src 'self'; connect-src 'self'; img-src 'self' https://image.tmdb.org; media-src 'self'; frame-ancestors 'none'; base-uri 'none'")
             self.end_headers()
             self.wfile.write(body)
 
@@ -58,6 +58,17 @@ def make_server(config_path, port=PORT):
                     self.reply(200, {'label': label})
                 else:
                     files = {'/': ('index.html', 'text/html; charset=utf-8'), '/app.js': ('app.js', 'text/javascript'), '/style.css': ('style.css', 'text/css')}
+                    branding = {
+                        '/branding/background.png': ('artwork/bobtv-background-dark-4k.png', 'image/png'),
+                        '/branding/logo.png': ('artwork/bobtv-logo.png', 'image/png'),
+                        '/branding/icon.png': ('artwork/bobtv-icon.png', 'image/png'),
+                        '/branding/splash.png': ('artwork/bobtv-splash.png', 'image/png'),
+                        '/branding/startup.wav': ('sound/bobtv-startup-sunrise-v1.wav', 'audio/wav'),
+                    }
+                    if self.path in branding:
+                        name, kind = branding[self.path]
+                        self.reply(200, (ROOT / 'assets' / 'branding' / name).read_bytes(), kind)
+                        return
                     if self.path not in files:
                         self.reply(404, {'error': 'Not found'}); return
                     name, kind = files[self.path]

@@ -32,8 +32,8 @@ This workspace is now the maintained implementation. The original
 The Python standard-library HTTP server binds only to 127.0.0.1:8765. Launches
 require a same-origin POST and a per-process token, allow only configured service
 IDs, and share the command layer's action lock. No shell interpolation is used
-for service input. The server exposes only three static files and explicit API
-routes. It is a local appliance interface, not an internet-facing service.
+for service input. The server exposes the home-page files, five explicitly allowlisted branding
+assets, and explicit API routes. It is a local appliance interface, not an internet-facing service.
 
 Logs: `~/.local/state/bobtv/home.log` and `browser.log`.
 Run tests: `python3 -m unittest discover -s tests -v` (loopback sockets required).
@@ -55,3 +55,13 @@ Use [artwork](assets/branding/artwork/), [sound](assets/branding/sound/), or
 [concepts](assets/branding/concepts/) for alternatives. Files are reviewed before
 being used in the live interface. Project decisions and handoffs live in
 [docs/status.md](docs/status.md).
+
+## Sunrise theme and intro
+
+The supplied 4K Earth background and transparent BobTV logo theme the sidebar
+and three-column home screen. The approved splash fades in with the WAV sound
+master over about four seconds, once per tab session. Refreshing or returning
+from a streaming window does not replay it. Preview intro replays it on demand;
+Skip or Escape stops audio and restores focus. Browser autoplay restrictions
+can make the initial intro silent; click Preview intro to hear it. Reduced-motion
+preferences disable the image fade. The artwork originals remain unchanged.
