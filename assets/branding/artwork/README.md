@@ -9,6 +9,13 @@ Added September 16, 2026 at Ken's request.
 | `bobtv-splash.png` | 1672 x 941 | Approved original splash, preserved byte-for-byte from ChatGPT. |
 | `bobtv-logo.png` | 1774 x 887 | Transparent RGBA derivative: BobTV wordmark and golden sunrise arc. |
 | `bobtv-icon.png` | 1254 x 1254 | Transparent RGBA derivative: compact golden sunrise arc. |
+| `bobtv-background-dark-4k.png` | 3840 x 2160 | Dark Earth-and-stars background without branding or city labels. |
+
+The dark background was requested by Ken after approval of the asset pack. It was edited from the approved splash with the built-in image-generation tool, removing the wordmark, golden logo arc, tagline and city labels, and reducing the sunrise and scene brightness. The tool returned 1672 x 941 pixels; the delivered PNG is a high-quality bicubic upscale to exactly 3840 x 2160, not native 4K generation. The approved splash and startup audio remain unchanged.
+
+### Dark background prompt
+
+> Edit the provided BobTV splash into a background-only image for the same TV app. REQUIRED OUTPUT exactly 3840 x 2160 pixels, 16:9 landscape PNG. Preserve the recognizable Earth-at-night composition: Atlantic centered, North America lower left and Europe lower right, curved Earth horizon around the middle/lower half, stars in space above. Completely remove BobTV lettering, the golden logo arc and its top glint, the tagline, Athens GA and London text, all lettering/labels, and the two exaggerated city starburst highlights. Seamlessly fill removed branding with natural dark starfield. Make the entire scene substantially darker, quieter, understated: deep midnight navy/near-black space, fewer and much dimmer stars, very faint Milky Way, soft restrained blue atmospheric rim, dim scattered warm city lights without starbursts. Reduce the horizon sunrise to a subtle low amber glow, no blazing white sun or strong lens flare. Keep clouds and coastlines discernible but subdued, ample calm dark negative space above Earth for app UI overlays. No logo, no symbol, no text, no labels, no border. High quality full-bleed 4K background. Save the requested output at exactly 3840x2160.
 
 The splash preserves the Earth at night, sunrise, ivory Bob/cool-blue TV wordmark, tagline, and finalized Athens GA and London highlights/labels. Its native dimensions are retained without resampling or cropping.
 
