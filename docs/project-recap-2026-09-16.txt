@@ -1,0 +1,470 @@
+BobTV + Whole-Home Control Project
+Big Picture
+The goal is no longer just “watch BBC on a little Linux PC.”
+The larger idea is to turn the MeLE mini-PC into a Bob-powered home entertainment and smart-home hub.
+At a high level:
+You / household
+      ↓
+Voice / remote / BobTV screen / phones
+      ↓
+BobTV + Bob
+      ↓
+┌─────────────────────────────┐
+│ Entertainment               │
+│ BBC / ITVX / Channel 4      │
+│ future Canada/Australia     │
+│ What'sOn / Trakt            │
+└─────────────────────────────┘
+      ↓
+┌─────────────────────────────┐
+│ Home control                │
+│ Home Assistant              │
+│ Hue                         │
+│ Alexa / Google / Apple      │
+│ smart plugs                 │
+│ Roku / TV / speakers        │
+│ future ESP32 devices        │
+└─────────────────────────────┘
+The long-term objective is that nobody in the house needs to know there is a Linux computer behind the TV.
+Ideally the experience becomes:
+“Bob, put BBC One on.”
+
+or press one button on the remote.
+BobTV handles the VPN, streaming service, TV input, audio, lights, etc.
+Hardware
+Main BobTV computer
+MeLE Quieter 4C
+- Intel N100
+- 16 GB RAM
+- 512 GB SSD
+- Intel UHD graphics
+- Intel Wireless-AC 9560 Wi-Fi
+- Realtek Ethernet
+- Dual HDMI
+- USB ports
+- USB-C
+This is more than powerful enough for what we're doing.
+TV setup
+Planned home configuration:
+TV HDMI 1 / ARC → Roku Streambar → Roku wireless speakers
+
+TV HDMI 2 → BobTV / MeLE
+The Roku remains your normal everyday streaming setup.
+BobTV is a separate HDMI input.
+The TV sends audio from BobTV back through ARC to the Roku Streambar, which then handles the wireless speakers.
+HDMI-CEC
+The MeLE itself does not expose native HDMI-CEC.
+Codex verified:
+- no /dev/cec*
+- Linux CEC support is present
+- no physical CEC controller detected
+- Intel graphics do not provide the missing hardware
+We ordered:
+Pulse-Eight USB-CEC Adapter
+Purpose:
+BobTV
+   ↓
+USB-CEC
+   ↓
+HDMI CEC bus
+   ↓
+TV
+Eventually this should allow BobTV to:
+- turn the TV on
+- turn it off
+- switch to BobTV's HDMI input
+- potentially participate in volume/audio control
+The adapter may take about a week to arrive.
+Remote Control
+We decided BobTV needs to behave like a normal TV appliance.
+The household should not need to know Omarchy keyboard shortcuts.
+We ordered a 2.4 GHz wireless air-mouse style remote that arrives tomorrow.
+The basic plan is:
+Remote button
+     ↓
+Linux input event
+     ↓
+BobTV command
+Example future mappings:
+BBC → bobtv launch bbc-iplayer
+ITV → bobtv launch itvx
+Channel 4 → bobtv launch channel4
+Home → BobTV home screen
+Mic → Bob voice control
+Play/Pause → media control
+The remote should eventually be the ordinary physical interface.
+Voice control will be the smarter interface.
+Operating System
+Windows/OpenClaw was wiped.
+We installed:
+Omarchy 4
+Hostname:
+bobtv
+Linux username:
+ken
+Omarchy is built on Arch Linux + Hyprland and is especially interesting because it is designed around AI-agent workflows.
+This has already proven useful.
+Instead of manually learning Linux configuration, we can tell Codex what we want and let it inspect/configure the actual machine.
+Example:
+“Fix my monitors.”
+
+Codex inspected the displays and fixed the left/right arrangement itself.
+AI Setup
+ChatGPT
+ChatGPT is installed/available on BobTV.
+The intent is for ChatGPT/Bob to be the planning, reasoning and conversational layer.
+Codex
+Codex is installed locally on BobTV and can directly inspect/configure the machine.
+This is a major part of the project architecture.
+The workflow has become:
+Ken + Bob/ChatGPT
+      ↓
+decide what BobTV should do
+      ↓
+Codex on BobTV
+      ↓
+inspect / configure / code / test
+This is much better than manually copying Linux commands around.
+VPN
+You use NordVPN.
+Nord is successfully installed on Omarchy.
+Login through the normal browser flow failed, so we used Nord's official Linux access-token method instead.
+It works.
+BobTV has successfully connected to the United Kingdom and streamed UK television.
+Long-term:
+UK = default location
+But BobTV should eventually support things such as:
+- United Kingdom
+- Canada
+- Australia
+- perhaps other countries
+without changing the underlying architecture.
+Streaming
+Verified working
+BBC iPlayer works through:
+MeLE
+ ↓
+Omarchy
+ ↓
+Wi-Fi
+ ↓
+NordVPN UK
+ ↓
+Chromium
+ ↓
+BBC iPlayer
+Video playback is smooth.
+YouTube playback also tested successfully.
+That confirmed the Intel/N100 graphics are perfectly adequate.
+BobTV Software
+This is one of the most important things we've accomplished.
+Codex created an actual reusable BobTV command layer rather than a BBC-specific script.
+Main command:
+bobtv
+BBC invocation:
+bobtv launch bbc-iplayer
+Explicit path:
+/home/ken/.local/bin/bobtv launch bbc-iplayer
+Architecture:
+~/.local/bin/bobtv
+        ↓
+Projects/bobtv/bobtv.py
+        ↓
+Projects/bobtv/services.json
+services.json
+Contains service definitions rather than hard-coded Python logic.
+BBC example:
+"bbc-iplayer": {
+  "name": "BBC iPlayer",
+  "region": "uk",
+  "url": "https://www.bbc.co.uk/iplayer"
+}
+When BobTV launches BBC:
+1. Determines required region.
+2. Checks NordVPN status.
+3. Reuses a UK connection if already connected.
+4. Otherwise connects Nord to United Kingdom.
+5. Verifies the VPN actually reports UK.
+6. Opens BBC iPlayer in Chromium.
+7. Refuses to open the browser if VPN verification fails.
+This is exactly the architecture we want.
+Streaming Services Already Added
+Codex reports BobTV currently has actions for:
+- BBC iPlayer
+- ITVX
+- Channel 4
+The same Python code handles all of them.
+That means future services should mostly be configuration rather than new programming.
+Startup / Appliance State
+Codex inspected the current startup configuration.
+Already working:
+Desktop auto-login
+Omarchy automatically logs into ken.
+Nord daemon
+Starts automatically with Linux.
+Not yet configured:
+Nord auto-connect
+Currently disabled.
+Kill switch
+Currently disabled.
+Idle lock
+Screensaver after 15 minutes.
+Lock after 30 minutes.
+That needs adjustment because a TV appliance shouldn't lock itself during normal use.
+Disk Encryption
+The SSD uses:
+LUKS disk encryption
+That currently means the machine may require a password after a full reboot/power loss.
+We deliberately decided not to change that yet.
+Eventually we could consider TPM-backed automatic disk unlock, but that's not necessary for the current phase.
+For now:
+power outage
+   ↓
+enter disk password once
+   ↓
+Omarchy auto-login
+   ↓
+BobTV ready
+That's acceptable for now.
+Current Exact Position
+We currently have a working proof-of-concept:
+BobTV boots
+   ↓
+Omarchy
+   ↓
+Codex available
+   ↓
+NordVPN works
+   ↓
+bobtv launch <service>
+   ↓
+VPN region verified
+   ↓
+streaming service opens
+BBC has been tested multiple times successfully.
+The core idea is proven.
+We are no longer asking:
+“Can BobTV work?”
+
+It works.
+We're now turning it into something that feels like a real consumer device.
+Next Immediate Steps
+1. Appliance startup
+Have Codex:
+- enable Nord auto-connect to United Kingdom
+- leave kill switch OFF for now
+- disable automatic idle locking for normal TV use
+- keep disk encryption unchanged
+- test everything after reboot
+Goal:
+turn BobTV on
+   ↓
+UK VPN automatically connects
+   ↓
+machine waits ready for commands
+2. Remote arrives tomorrow
+When the remote arrives:
+Plug in USB receiver.
+Then ask Codex to inspect all input events.
+Create a button map.
+Then map remote buttons to BobTV actions.
+This is the next major usability milestone.
+3. CEC adapter later
+When Pulse-Eight arrives:
+- connect to MeLE
+- connect to HDMI CEC bus
+- let Codex detect /dev/cec0
+- test TV power
+- test input switching
+- integrate CEC commands into BobTV
+Eventually:
+press BBC
+   ↓
+TV wakes
+   ↓
+TV switches to BobTV HDMI
+   ↓
+Nord UK verified
+   ↓
+iPlayer opens
+BobTV Home Screen
+After the remote works, we should build a simple 10-foot interface.
+Probably a local web app running full-screen.
+Roughly:
+               BOB TV
+
+     BBC       ITVX       Channel 4
+
+          Continue Watching
+
+             What'sOn
+
+         Canada   Australia
+
+             Smart Home
+Chromium can boot into this in kiosk/full-screen mode.
+This becomes the default screen instead of the Omarchy desktop.
+What'sOn and Trakt
+Important distinction:
+Trakt
+You currently use Trakt to track television watching.
+What'sOn
+Your custom application remembers:
+- what shows you're watching
+- season/episode progress
+- recommendations
+- similar shows
+These are existing systems you actually use today.
+We should not duplicate them unnecessarily.
+Later BobTV can potentially use them as its entertainment memory.
+Example:
+“Bob, what should we watch?”
+
+BobTV consults What'sOn / Trakt.
+Or:
+“Continue Ludwig.”
+
+BobTV knows your current episode and launches the relevant service.
+Household Profiles
+There are three people in the household.
+BobTV must not be designed only for Ken.
+Future profiles could include:
+- Ken
+- Person 2
+- Person 3
+- Household
+“Household” matters because some shows are watched together.
+For example:
+“We're watching Grantchester.”
+
+could advance the household history rather than one person's history.
+We don't need to solve automatic identity yet.
+Initially, profile selection can simply be a button or voice command.
+Whole-Home Control
+BobTV is only one half of the larger project.
+The second half is Home Assistant.
+The eventual architecture:
+              Bob
+               ↓
+         Home Assistant
+               ↓
+ ┌─────────┬─────────┬─────────┐
+ Hue      Roku      smart plugs
+ Apple    Google    Alexa
+ sensors  cameras   future devices
+Home Assistant becomes the common control layer.
+Bob doesn't need custom code for every manufacturer.
+Bob talks to Home Assistant.
+Home Assistant talks to everything else.
+Existing Smart Devices
+House currently includes at least:
+- Apple devices
+- Alexa devices
+- Google devices
+- Philips Hue
+- Roku Streambar
+- Roku wireless speakers
+- smart plugs
+- other assorted smart devices
+Rather than replacing those ecosystems, Home Assistant should unify them.
+Siri/Alexa/Google can potentially remain alternate control interfaces.
+Bob becomes the smarter interface above them.
+Future Example
+Eventually:
+“Bob, we're watching Grantchester.”
+
+could trigger:
+Identify household profile
+        ↓
+What'sOn finds current episode
+        ↓
+determine streaming service
+        ↓
+TV turns on through CEC
+        ↓
+switch TV to BobTV HDMI
+        ↓
+VPN chooses correct country
+        ↓
+service opens
+        ↓
+episode launches
+        ↓
+Hue lights dim
+        ↓
+Roku Streambar handles audio
+That's the real vision.
+Future Hardware Projects
+BobTV is also our introduction to hardware programming.
+We discussed:
+Raspberry Pi
+Small general-purpose Linux computer.
+ESP32
+Very inexpensive Wi-Fi/Bluetooth microcontroller for sensors, relays, buttons, IR transmitters, etc.
+Future possibilities:
+- custom sensors
+- infrared controllers
+- smart buttons
+- physical status displays
+- scanning appliances
+- office hardware automation
+- custom Delvio hardware
+- improved scanner workflows
+- eventually custom circuit boards
+Important design constraint:
+Avoid tiny/fiddly electronics whenever possible.
+We'll favor:
+- pre-soldered modules
+- larger development boards
+- screw terminals
+- Grove-style connectors
+- USB
+- ready-made enclosures
+- spending a little extra for easier hardware
+No microscopic soldering unless absolutely necessary.
+Design Principles
+These are worth preserving for the entire project.
+1. Appliance, not computer
+The household should not need Linux knowledge.
+2. One action layer
+All interfaces should call the same BobTV actions:
+remote
+voice
+home screen
+phone
+automation
+      ↓
+bobtv command
+3. Configuration over hard coding
+Adding a service should ideally mean changing services.json, not rewriting BobTV.
+4. AI manages complexity
+Ken decides what the machine should do.
+Codex handles much of the Linux/configuration detail.
+5. Don't replace working systems without a reason
+Trakt and What'sOn already solve real problems.
+Home Assistant already solves smart-device integration.
+Use them where appropriate.
+6. Build incrementally
+BBC first.
+Then remote.
+Then CEC.
+Then interface.
+Then smart home.
+Then recommendations/profiles.
+Don't attempt the entire Jarvis house at once.
+Where We Are Right Now
+Core BobTV software: working.
+UK streaming: working.
+VPN: working.
+AI administration through Codex: working.
+Remote: ordered, arrives tomorrow.
+CEC adapter: ordered, arriving later.
+Whole-home Home Assistant integration: planned, not started.
+What'sOn/Trakt integration: planned, not started.
+BobTV graphical home screen: planned, not started.
+Immediate next move
+Have Codex configure:
+Nord UK auto-connect + TV-friendly idle behavior + reboot test.
+Then tomorrow:
+plug in remote → identify buttons → map buttons to BobTV.
+That’s the clean place to resume from.

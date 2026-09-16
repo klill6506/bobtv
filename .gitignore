@@ -1,0 +1,13 @@
+__pycache__/
+*.pyc
+
+# Local credentials and runtime data
+.env
+.env.*
+!.env.example
+.venv/
+*.log
+*.sqlite
+*.sqlite3
+*.db
+.DS_Store

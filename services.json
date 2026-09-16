@@ -1,0 +1,86 @@
+{
+  "browser": [
+    "chromium",
+    "--new-window"
+  ],
+  "regions": {
+    "uk": {
+      "nordvpn_target": "United_Kingdom",
+      "country": "United Kingdom"
+    },
+    "ca": {
+      "nordvpn_target": "Canada",
+      "country": "Canada"
+    },
+    "au": {
+      "nordvpn_target": "Australia",
+      "country": "Australia"
+    },
+    "us": {
+      "mode": "direct",
+      "country": "United States"
+    }
+  },
+  "services": {
+    "bbc-iplayer": {
+      "name": "BBC iPlayer",
+      "region": "uk",
+      "url": "https://www.bbc.co.uk/iplayer"
+    },
+    "itvx": {
+      "name": "ITVX",
+      "region": "uk",
+      "url": "https://www.itv.com/"
+    },
+    "channel4": {
+      "name": "Channel 4",
+      "region": "uk",
+      "url": "https://www.channel4.com/"
+    },
+    "prime-video": {
+      "name": "Prime Video",
+      "region": "us",
+      "url": "https://www.amazon.com/gp/video/storefront"
+    },
+    "youtube-tv": {
+      "name": "YouTube TV",
+      "region": "us",
+      "url": "https://tv.youtube.com/"
+    },
+    "youtube": {
+      "name": "YouTube",
+      "region": "us",
+      "url": "https://www.youtube.com/"
+    },
+    "hbo-max": {
+      "name": "HBO Max",
+      "region": "us",
+      "url": "https://www.hbomax.com/"
+    },
+    "hulu": {
+      "name": "Hulu",
+      "region": "us",
+      "url": "https://www.hulu.com/"
+    },
+    "apple-tv": {
+      "name": "Apple TV",
+      "region": "us",
+      "url": "https://tv.apple.com/us"
+    },
+    "paramount-plus": {
+      "name": "Paramount+",
+      "region": "us",
+      "url": "https://www.paramountplus.com/"
+    },
+    "peacock": {
+      "name": "Peacock",
+      "region": "us",
+      "url": "https://www.peacocktv.com/"
+    },
+    "netflix": {
+      "name": "Netflix",
+      "region": "us",
+      "url": "https://www.netflix.com/"
+    }
+  }
+}
