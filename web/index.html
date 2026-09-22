@@ -7,14 +7,20 @@
 <a class="nav-item" href="https://whatson.kenlill.com/" target="_blank" rel="noopener noreferrer">Continue Watching <span>Open What’sOn ↗</span></a>
 <button class="nav-item" data-view="uk" aria-pressed="false">United Kingdom</button>
 <button class="nav-item" data-view="us" aria-pressed="false">United States</button>
+<a class="nav-item" href="http://127.0.0.1:8123/bobtv-home/home" target="_blank" rel="noopener noreferrer">Smart Home <span>Lights &amp; thermostats ↗</span></a>
 </nav>
 <div class="sidebar-bottom"><button class="nav-item" id="cinema-preview">Preview intro <span>Sunrise · with sound</span></button><button class="nav-item" id="fullscreen">Full screen</button><p>A little more you.<br>A lot to watch.</p></div>
 </aside><main>
 <header><p class="eyebrow">MAKE YOURSELF AT HOME</p><div class="topright"><span id="network">Checking connection…</span><time id="clock"></time></div></header>
 <div class="intro"><h1 id="page-title">What are we watching?</h1><p class="intro-note">Your favorites. One place to begin.</p></div>
+<section class="voice-panel" aria-labelledby="voice-heading">
+<div><h2 id="voice-heading">Talk to Bob</h2><p id="voice-status" role="status" aria-live="polite">Say “Open BBC”, “Open Prime”, or “Open Hulu”.</p><p id="voice-heard"></p></div>
+<div class="voice-actions"><button id="voice-start" type="button">Talk to Bob</button><button id="voice-test" type="button">Hear Bob</button><button id="voice-cancel" type="button" hidden>Cancel</button></div>
+</section>
+<a class="smart-home-card" href="http://127.0.0.1:8123/bobtv-home/home" target="_blank" rel="noopener noreferrer"><span class="home-symbol" aria-hidden="true">⌂</span><span><strong>Smart Home</strong><small>Lights &amp; thermostats</small></span><span aria-hidden="true">↗</span></a>
 <section data-region="uk" aria-labelledby="uk-heading"><div class="section-heading"><h2 id="uk-heading">United Kingdom</h2><span>Connects to UK VPN</span></div><div class="grid uk" id="uk"></div></section>
 <section data-region="us" aria-labelledby="us-heading"><div class="section-heading"><h2 id="us-heading">United States</h2><span>Home internet · disconnects VPN</span></div><div class="grid us" id="us"></div></section>
 <div id="message" role="status" aria-live="polite">Choose a service to start watching.</div>
-<footer><span>Arrow keys to browse <b>·</b> Enter to open <b>·</b> Close streaming window to return</span></footer>
+<footer><span>↑ ↓ ← → Browse <b>·</b> Enter Open <b>·</b> Ctrl+Alt+H Home <b>·</b> Alt+Tab Switch apps</span></footer>
 <p class="connection-note">Switching regions changes the connection for this computer, including streams already open.</p>
 </main><dialog id="cinema" aria-label="BobTV sunrise intro"><div class="cinema-stage"><img id="splash-art" src="/branding/splash.png" alt="BobTV — Entertainment, intelligently. Sunrise over Earth, connecting Athens, Georgia and London." width="1672" height="941"></div><button id="cinema-skip">Skip intro</button><p id="cinema-audio-status" role="status"></p><audio id="cinema-sound" src="/branding/startup.wav" preload="auto"></audio></dialog></body></html>

@@ -1,0 +1,16 @@
+[Unit]
+Description=BobTV paired phone remote
+PartOf=graphical-session.target
+After=graphical-session.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/ken/Documents/ChatGPT/BobTV
+EnvironmentFile=%h/.config/bobtv/remote.env
+ExecStart=/usr/bin/python3 /home/ken/Documents/ChatGPT/BobTV/remote_server.py --host ${BOBTV_REMOTE_HOST}
+Restart=on-failure
+RestartSec=5
+Environment=PYTHONUNBUFFERED=1
+
+[Install]
+WantedBy=graphical-session.target

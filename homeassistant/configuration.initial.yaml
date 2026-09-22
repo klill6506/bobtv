@@ -1,0 +1,11 @@
+# Copy once to ~/.local/share/homeassistant/configuration.yaml.
+# Keep the setup dashboard local while the MeLE is at work.
+default_config:
+
+homeassistant:
+  name: Bob Home
+  time_zone: America/New_York
+
+automation: !include automations.yaml
+script: !include scripts.yaml
+scene: !include scenes.yaml

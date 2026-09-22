@@ -1,0 +1,18 @@
+name: bobtv-homeassistant
+services:
+  homeassistant:
+    image: ghcr.io/home-assistant/home-assistant:2026.9.2
+    container_name: homeassistant
+    restart: unless-stopped
+    network_mode: host
+    environment:
+      TZ: America/New_York
+    volumes:
+      - /home/ken/.local/share/homeassistant:/config
+      - /etc/localtime:/etc/localtime:ro
+    stop_grace_period: 60s
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"

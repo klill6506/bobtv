@@ -1,0 +1,133 @@
+title: BobTV Smart Home
+views:
+- title: Smart Home
+  path: home
+  icon: mdi:home-assistant
+  cards:
+  - type: markdown
+    content: '# Smart Home
+
+      Lights and comfort, together.
+
+
+      [← Back to BobTV](http://127.0.0.1:8765/)'
+  - type: thermostat
+    entity: climate.downstairs_foyer
+    name: Downstairs Foyer
+  - type: thermostat
+    entity: climate.upstairs_ecobee
+    name: Upstairs Ecobee
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## Den'
+    - type: grid
+      columns: 2
+      square: false
+      cards:
+      - type: tile
+        entity: light.den_color_lamp_1
+        name: Color Lamp 1
+        features:
+        - type: light-brightness
+        tap_action:
+          action: more-info
+        icon_tap_action:
+          action: toggle
+      - type: tile
+        entity: light.den_color_lamp_2
+        name: Color Lamp 2
+        features:
+        - type: light-brightness
+        tap_action:
+          action: more-info
+        icon_tap_action:
+          action: toggle
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## Kitchen'
+    - type: grid
+      columns: 2
+      square: false
+      cards:
+      - type: tile
+        entity: light.kitchen_coffee_lights
+        name: Coffee Lights
+        features:
+        - type: light-brightness
+        tap_action:
+          action: more-info
+        icon_tap_action:
+          action: toggle
+      - type: tile
+        entity: light.kitchen_kitchen_left
+        name: Kitchen Left
+        features:
+        - type: light-brightness
+        tap_action:
+          action: more-info
+        icon_tap_action:
+          action: toggle
+      - type: tile
+        entity: light.kitchen_kitchen_right
+        name: Kitchen Right
+        features:
+        - type: light-brightness
+        tap_action:
+          action: more-info
+        icon_tap_action:
+          action: toggle
+      - type: tile
+        entity: light.kitchen_kitchen_overhead
+        name: Overhead 1
+        features:
+        - type: light-brightness
+        tap_action:
+          action: more-info
+        icon_tap_action:
+          action: toggle
+      - type: tile
+        entity: light.kitchen_kitchen_overhead_2
+        name: Overhead 2
+        features:
+        - type: light-brightness
+        tap_action:
+          action: more-info
+        icon_tap_action:
+          action: toggle
+      - type: tile
+        entity: light.kitchen_kitchen_overhead_3
+        name: Overhead 3
+        features:
+        - type: light-brightness
+        tap_action:
+          action: more-info
+        icon_tap_action:
+          action: toggle
+  - type: vertical-stack
+    cards:
+    - type: markdown
+      content: '## Master Bedroom'
+    - type: grid
+      columns: 2
+      square: false
+      cards:
+      - type: tile
+        entity: light.master_bedroom_hue_white_lamp_3
+        name: White Lamp 3
+        features:
+        - type: light-brightness
+        tap_action:
+          action: more-info
+        icon_tap_action:
+          action: toggle
+      - type: tile
+        entity: light.master_bedroom_hue_white_lamp_4
+        name: White Lamp 4
+        features:
+        - type: light-brightness
+        tap_action:
+          action: more-info
+        icon_tap_action:
+          action: toggle

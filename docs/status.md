@@ -159,3 +159,91 @@ just to work on this machine, since this session already has local access.
 - Approved splash image and WAV master replace the synthesized Bob Cinema trial. Fade intro lasts 4.1 seconds, once per tab session with manual Preview intro. Browser-blocked autoplay falls back to a silent intro with explanation. No global browser autoplay policy changed.
 - Exact branding route allowlist serves only the five needed assets; uploaded scripts and arbitrary paths remain inaccessible.
 - Validation: 20 Python tests passed, JS syntax passed; browser confirmed logo/background loading, three columns, recorded audio playing, automatic close, skip stopping audio/restoring focus, and no repeat on refresh. Physical TV audio still needs the at-home test.
+
+## Audio and navigation fixes — September 16
+- HDMI output to SONY TV was at 40%; raised to 80%. Intro HTML audio was at 50%; now 100%. Physical listening confirmation remains with Ken.
+- Prime tile now targets https://www.primevideo.com/ instead of Amazon's video storefront. Account playback has not been retested.
+- Installed Ctrl+Alt+H for bobtv home in user bindings.lua; backup is bindings.lua.before-bobtv. Hyprland reload succeeded without config errors.
+- Home action focuses an existing Chromium BobTV window. Verified a second invocation returned to the existing window. Alt+Tab remains the existing app switcher.
+- Home footer displays controls; directional keys no longer scroll the page when focus hits an edge. Streaming sites retain their own controls. Remote button mapping awaits input-device details.
+- Validation: 22 Python tests passed and JavaScript syntax passed.
+
+## Longer sunrise sound — September 17
+- Ken requested a longer splash sound. Created a six-second v2 WAV from v1 using pitch-preserving Rubber Band stretching; retained the motif and original file. Reproduction script is in sound/source/extend_take.py.
+- Active audio route now serves v2; splash animation and close timer both last 6.3 seconds. Skip/Escape and once-per-session behavior remain.
+- Verified generated duration and JavaScript syntax. Physical listening feedback is pending.
+
+## MX3 remote setup — September 17
+- Ken plugged in the MX3 Air Fly Mouse and confirmed pointer movement. Linux identifies its receiver as XING WEI 2.4G USB, USB 1915:1025.
+- Keyboard, mouse, consumer-control and system-control interfaces are present. Existing Omarchy bindings handle standard volume and media key symbols; the remote's actual button codes still need measurement.
+- Added scripts/probe_remote.py for a bounded 60-second exclusive test of this receiver only. Reports allowlisted control buttons, not typed text; all grabs release on exit. Device access requires administrator authentication.
+- No remote-specific bindings have been installed yet. Ctrl+Alt+H remains available for BobTV Home.
+
+### MX3 Home button identified and configured
+- Live button test received KEY_HOMEPAGE (172). Installed XF86HomePage → /home/ken/.local/bin/bobtv home in user bindings.lua; no previous mapping existed. Backup: bindings.lua.before-mx3.
+- Hyprland reload and shortcut validation completed. Physical return-to-home check is pending. Back and other remote buttons have not yet been measured.
+- Probe duration is now 120 seconds. Its output can be saved to /tmp/bobtv-mx3-test.log so an interrupted conversation does not lose control-button results.
+
+### MX3 Home confirmed; audio diagnosis
+- Ken confirmed the remote Home button returns to BobTV.
+- Reported missing sound. Live inspection found analog stereo at 40%, unmuted, instead of the previously used SONY HDMI output. All HDMI audio ports report unavailable and ALSA ELD reports no monitor. Saved default still names HDMI. No audio routing changes made pending confirmation of current display/speaker connection.
+- MX3 USB audio interface is microphone-input-only, not a playback sink.
+
+### MX3 color-button request — not installed
+- Desired mapping: red BBC iPlayer, green Prime Video, yellow YouTube TV, blue Hulu. Ken completed the color-button test; no allowlisted control-key events were captured.
+- Aerb MX3 manual identifies the four colors as IR-learning buttons: https://upload.sunsky-online.com/res/drivers/S-KB-0069_MX3_User_Manual.pdf . This likely explains the lack of USB events; exact MX3 variant is not independently confirmed.
+- Color shortcuts were not installed. Alternatives are other USB-reporting buttons or an added IR receiver; await Ken's preference. Home remains configured and user-confirmed.
+
+### MX3 microphone capture test
+- Ken plans to leave the MeLE at home once setup is complete.
+- Captured 30 seconds locally from the explicit XING WEI USB mono microphone, 8 kHz/16-bit, to /tmp/bobtv-mx3-mic-test.wav. Recording has ended.
+- WAV duration and decoding verified; non-silent signal with varying levels was recorded. Brief peaks reached full scale. Speech intelligibility and mic-button hold/toggle behavior still need listening confirmation; no speech recognition or voice actions configured.
+
+### MX3 Mic button configured — app restart and live test pending
+- Comparison capture confirmed Home down/up, followed by KEY_VOICECOMMAND (582) down/up only 0.12 seconds apart during a requested three-second hold. Use a voice toggle, not hold-to-talk.
+- Installed XF86VoiceCommand → scripts/remote_voice.py. Script focuses the existing Chatgpt window, verifies focus, and sends Ctrl+Alt+V with paired down/up events. If ChatGPT is not open, it shows a notification.
+- Configured realtimeVoice=Ctrl+Alt+V in ~/.codex/keybindings.json, using the schema confirmed in installed app code. The controller toggles voice sessions; reads the binding on app startup. ChatGPT must be fully quit and reopened before physical verification.
+- Hyprland reload/configerrors clean; Home/Mic entries present. Mock checks passed for focus-before-send, paired key events, and refusal to send to unrelated windows.
+- This controls ChatGPT voice; BobTV/Home Assistant command recognition is not yet configured.
+
+## Home Assistant installation started — September 17
+- Ken confirmed MX3 mic-to-ChatGPT voice works after restart.
+- Ken authorized installing Home Assistant; MeLE will stay home after setup. Docker Engine 29.7.2 and Compose 5.5.1 are installed. Enabled docker.service at boot and started it.
+- Prepared homeassistant/compose.yaml using official image 2026.9.2, host networking, restart unless-stopped, 60s shutdown grace period, capped logs. No privileged/device/DBus passthrough yet.
+- Created initial persistent config at ~/.local/share/homeassistant outside Git; HTTP binds 127.0.0.1:8123 during work setup. No owner account created.
+- Added Home Assistant sidebar link. Compose schema and git diff checks passed.
+- Pending: pkexec docker compose up -d is awaiting Linux authentication (exec session 41468). Do not claim installation complete until container and HTTP checks pass. Then open local onboarding for Ken to create the owner account.
+
+## Desktop startup and Home Assistant follow-up — September 17
+- Added o.launch_on_start("chatgpt") to ~/.config/hypr/autostart.lua for ChatGPT/Codex at desktop login. Added explicit input.numlock_by_default=true to user input.lua (the Omarchy default already enabled it). Timestamped backups made; reload succeeded and configerrors was empty. Next-login launch has not yet been tested.
+- Home Assistant installation completed; onboarding API responds and Docker service is enabled/active. Owner account remains uncreated.
+- Observed HTTP listening on all interfaces despite initial YAML server_host setting. Current HA has migrated HTTP settings to UI storage. Compose now publishes only 127.0.0.1:8123 using bridge networking; this limits discovery until home network setup. Initial template no longer includes deprecated HTTP YAML.
+- Applying updated compose awaits Linux authentication in exec session 26978; inspect session 69086 also pending. Verify loopback listener and onboarding after completion. Do not describe local-only networking as applied until verified.
+
+### Home Assistant setup connection verified
+- Ken completed authentication; compose session 26978 exited successfully and recreated/started homeassistant with bridge networking.
+- Verified HTTP listens only on 127.0.0.1:8123 and /api/onboarding responds with owner setup incomplete. Ready for Ken to create the account.
+- Saved Wi-Fi profiles Downstairs 2.0 and Occam's Router both have autoconnect enabled. No Wi-Fi settings changed.
+
+## BobTV speaking milestone — September 17
+- Added local push-to-talk worker, service-name parsing, spoken replies, ten-second capture limit, cancellation and four-minute watchdog. Explicit MX3 microphone; no microphone recordings saved/uploaded.
+- Home now has Talk to Bob, Hear Bob, Cancel, and live status/transcript. Voice POSTs retain origin/token/host checks and share the menu busy lock.
+- MX3 Mic routes to BobTV only on its Chromium home screen; elsewhere keeps ChatGPT behavior. Added Ctrl+Alt+B, backed up bindings.lua, reloaded/validated Hyprland.
+- Isolated packages/models installed under ~/.local/share/bobtv/voice. Vosk handles confident service commands; local Whisper base.en supplies fallback; uncertain matched services require spoken yes. Piper Alan is currently active.
+- 36 automated tests passed. Synthetic speech at 8kHz bandwidth passed BBC, Prime, Hulu (confirmation required), YouTube TV, negated BBC, unsupported Grantchester, and silence. Physical command recognition still needs Ken's test.
+- Browser Hear Bob test completed; Ken confirmed hearing the greeting. Menu service restarted with final changes. Hue effects and title/episode search remain future work.
+- Ken requested Marin. Official OpenAI docs confirm gpt-4o-mini-tts supports Marin. No API key was present in this process or project .env. No paid API requests made.
+- Prepared scripts/setup_marin.py: terminal hidden key input, one-time fixed-reply generation, local WAV reuse, activation after every phrase succeeds. Key not stored. Current voice stays active pending API setup; asked Ken whether he already has a key. Marin is prepared but NOT yet activated.
+
+## Marin activated — September 17
+- Ken supplied `~/.config/bobtv/bob.env` by USB and authorized completing setup. Restricted the file to 0600; no credentials copied into the repository or logs.
+- Generated all 40 fixed replies using OpenAI gpt-4o-mini-tts with Marin, checked each WAV, and activated the local cache. Existing speech delivery instructions retained; imported realtime assistant instructions are not needed for these fixed replies.
+- Played the greeting successfully through the actual BobTV voice worker and PipeWire. Ken's listening confirmation is pending. Cached playback needs no API calls; uncached future replies still fall back to Piper.
+- MeLE identified as Quieter 4C. CPU measured 77°C against a reported 105°C limit during the heat check; this is not a case-surface measurement. Ken clarified the case was less hot than first described and requested finishing before shutdown.
+
+
+## Repository review — September 21
+- Restored voice API integration, home-window reuse, and the six-second audio route that were missing from the changed home server.
+- Forwarded serve host/port CLI options; required a password for non-loopback listeners, enforced exact request origins, and kept voice controls local-only. Unicode passwords are supported.
+- Restricted all remote probe modes to control-button events; ordinary typing is excluded.
+- Validation: 57 Python tests passed, including remote authentication and integration regressions; both JavaScript files passed syntax checks. Hardware playback, microphone recognition, and iPhone operation were not exercised during this review.

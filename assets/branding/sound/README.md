@@ -3,6 +3,16 @@
 BobTV's startup sound — the sonic logo — and the takes it was chosen from.
 Naming and handoff rules are in [branding handoff](../README.md).
 
+## Longer splash version — September 17
+
+`bobtv-startup-sunrise-v2-long.wav` is the active six-second variant.
+Derived locally from the original WAV using FFmpeg Rubber Band pitch-preserving
+stretching, keeping the four-note motif, stereo, and 0.35-second silent lead-in.
+A final half-second fade softens the ending. The splash now lasts 6.3 seconds.
+Regenerate with `python3 assets/branding/sound/source/extend_take.py`.
+The original master and generated takes remain available. Listening approval
+of this slower variant is still pending.
+
 ## The chosen sound: `bobtv-startup-sunrise-v1`
 
 | File | What |

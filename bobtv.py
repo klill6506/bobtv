@@ -47,17 +47,25 @@ def is_connected(output, country):
             and fields.get("country") == country.casefold())
 
 
-def ensure_region(region):
-    if region.get("mode") == "direct":
+def disconnect_vpn():
+    if status_fields(vpn("status")).get("status") == "disconnected":
+        return
+    vpn("disconnect")
+    for attempt in range(10):
         if status_fields(vpn("status")).get("status") == "disconnected":
             return
-        vpn("disconnect")
-        for attempt in range(10):
-            if status_fields(vpn("status")).get("status") == "disconnected":
-                return
-            if attempt < 9:
-                time.sleep(1)
-        raise ActionError("Could not verify VPN disconnection. Chromium was not opened.")
+        if attempt < 9:
+            time.sleep(1)
+    raise ActionError("Could not verify VPN disconnection.")
+
+
+def ensure_region(region):
+    if region.get("mode") == "direct":
+        try:
+            disconnect_vpn()
+        except ActionError as exc:
+            raise ActionError(f"{exc} Chromium was not opened.") from exc
+        return
     if is_connected(vpn("status"), region["country"]):
         return
     print(f"Connecting NordVPN to {region['country']}…", file=sys.stderr)
@@ -132,28 +140,48 @@ def launch(config, service_id, state_dir, check_only=False):
         print(f"Launched {service['name']} using {connection}.")
 
 
+def release(state_dir):
+    """Turn NordVPN off after a VPN service so Tailscale regains the internet."""
+    state_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+    with (state_dir / "action.lock").open("a+") as lock:
+        try:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        except BlockingIOError as exc:
+            raise ActionError("Another BobTV action is running; try again shortly.") from exc
+        disconnect_vpn()
+
+
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--config", type=Path, default=Path(__file__).resolve().with_name("services.json"))
     sub = parser.add_subparsers(dest="command", required=True)
     sub.add_parser("home", help="Open the full-screen home screen")
-    sub.add_parser("serve", help="Run the local home-screen server")
+    serve = sub.add_parser("serve", help="Run the home-screen server")
+    serve.add_argument("--host", default=os.environ.get("BOBTV_HOST", "127.0.0.1"),
+                       help="Interface to bind (default 127.0.0.1; use 0.0.0.0 for Tailscale)")
+    serve.add_argument("--port", type=int, default=int(os.environ.get("BOBTV_PORT", "8765")))
     sub.add_parser("list", help="List stable service IDs and region settings")
     action = sub.add_parser("launch", help="Ensure VPN region, then open the service")
     action.add_argument("service")
     action.add_argument("--check-only", action="store_true", help="Ensure VPN region without opening Chromium")
+    sub.add_parser("release", help="Turn NordVPN off after watching a VPN service")
     args = parser.parse_args()
     try:
         config = load_config(args.config)
         if args.command in ("home", "serve"):
             import home_server
-            return home_server.run(args.command, args.config)
+            return home_server.run(args.command, args.config,
+                                   host=getattr(args, "host", None), port=getattr(args, "port", None))
         if args.command == "list":
             for service_id, service in config["services"].items():
                 print(f"{service_id}\t{service['name']}\t{service['region']}")
         else:
             state = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "bobtv"
-            launch(config, args.service, state, args.check_only)
+            if args.command == "release":
+                release(state)
+                print("NordVPN is off.")
+            else:
+                launch(config, args.service, state, args.check_only)
         return 0
     except (ActionError, OSError) as exc:
         print(f"BobTV: {exc}", file=sys.stderr)
