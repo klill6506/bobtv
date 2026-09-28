@@ -266,3 +266,11 @@ just to work on this machine, since this session already has local access.
 - Side effect: the MeLE's own chassis power button sends the same key, so it toggles the TV too.
 - Hyprland reloaded with no config errors; exactly one binding on the power key; the Home, voice and SUPER + ESCAPE bindings are intact. The toggle was verified on the TV in both directions from the command line. The physical remote press still needs Ken's test.
 - 93 automated tests pass.
+
+## Adapter access from the desktop session — September 28
+- Adding ken to `uucp` only applied to new logins. Hyprland, `bobtv-home` and `bobtv-remote` all started at boot without the group, so the power binding and the launch-time wake silently failed, while every test over SSH (a fresh login) passed. The earlier "launch from standby woke the TV" check ran over SSH and so did not cover the home screen or phone remote.
+- Fix: `udev/70-pulse8-cec.rules`, installed at `/etc/udev/rules.d/`, tags the adapter (USB 2548:1002) `uaccess`, so logind grants the signed-in seat user an ACL. It works immediately and does not depend on when a session started. `getfacl /dev/ttyACM0` now shows `user:ken:rw-`. The `uucp` membership stays; it is harmless.
+- Verified: `bobtv tv toggle` run through Hyprland's own launcher (`hyprctl dispatch 'hl.dsp.exec_cmd(...)'`) took the TV from on to standby and back.
+- Probe: `scripts/probe_remote.py --scan` prints the raw MSC_SCAN code behind four control-button presses. The power family (KEY_SLEEP, KEY_WAKEUP, KEY_SUSPEND, KEY_POWER2) is now on the allowlist so a sleep-sending power button is not silently dropped. Still no letters or numbers are ever reported.
+- Finding: the MX3 power button sends KEY_POWER (scan 0x10081, System Control interface, event12), but **the first press after the remote has been idle only wakes the remote and sends nothing**. From a cold remote the TV needs two presses. Up is a different code (0x70052, keyboard interface), so the binding cannot collide with navigation.
+- To rebuild: `sudo install -m 644 udev/70-pulse8-cec.rules /etc/udev/rules.d/ && sudo udevadm control --reload && sudo udevadm trigger --action=change --subsystem-match=tty`.

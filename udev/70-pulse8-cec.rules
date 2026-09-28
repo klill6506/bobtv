@@ -1,0 +1,3 @@
+# Pulse-Eight USB-CEC adapter: let the person signed in at the TV use it,
+# however long ago their session started. See BobTV docs/status.md.
+SUBSYSTEM=="tty", ATTRS{idVendor}=="2548", ATTRS{idProduct}=="1002", TAG+="uaccess"

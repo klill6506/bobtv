@@ -13,6 +13,8 @@ parser.add_argument('--one', action='store_true', help='Stop after the first con
 parser.add_argument('--colors', action='store_true', help='Capture red, green, yellow, blue in order, then stop')
 parser.add_argument('--edges', action='store_true', help='Show button press/release timing; stop three seconds after release')
 parser.add_argument('--mic-test', action='store_true', help='Wait for Home, then observe the mic button for 20 seconds')
+parser.add_argument('--scan', action='store_true',
+                    help='Show the raw hardware scan code behind four control-button presses, then stop')
 args = parser.parse_args()
 
 names = {}
@@ -26,8 +28,12 @@ allowed = {1, 28, 96, 102, 103, 104, 105, 106, 107, 108, 109, 110, 111,
            173, 174, 207, 217, 226, 272, 273, 582}
 allowed.update(range(59, 69))  # F1–F10
 allowed.update({87, 88, *range(183, 195), *range(398, 402)})
+# The power family, so a power button that sends sleep or wake is not silently
+# dropped: KEY_SLEEP, KEY_WAKEUP, KEY_SUSPEND, KEY_POWER2 (KEY_POWER is above).
+allowed.update({142, 143, 205, 356})
 event = struct.Struct('llHHi')
 opened = []
+nodes = {}
 try:
     for node in sorted(Path('/sys/class/input').glob('event*')):
         device = node / 'device'
@@ -36,12 +42,17 @@ try:
             continue
         fd = os.open('/dev/input/' + node.name, os.O_RDONLY | os.O_NONBLOCK)
         opened.append(fd)
+        nodes[fd] = node.name
         fcntl.ioctl(fd, 0x40044590, 1)  # EVIOCGRAB; released on close
     if not opened:
         raise RuntimeError('MX3 receiver not found')
     colors = iter(['RED', 'GREEN', 'YELLOW', 'BLUE'])
     captured = 0
-    print('READY: press HOME once, then hold MIC for three seconds and release.' if args.mic_test else 'READY: hold the MIC button for three seconds, then release.' if args.edges else 'READY: press RED, GREEN, YELLOW, BLUE once each, in order.' if args.colors else 'READY: press the requested control button.' if args.one else 'READY: press Home, Back, Up, Down, Left, Right, OK, Volume Up, Volume Down, Play/Pause in order.', flush=True)
+    last_scan = {}  # fd -> the MSC_SCAN value that arrived just before a key
+    if args.scan:
+        print('READY: press POWER, then UP on the ring, then POWER, then UP, a second apart.', flush=True)
+    else:
+        print('READY: press HOME once, then hold MIC for three seconds and release.' if args.mic_test else 'READY: hold the MIC button for three seconds, then release.' if args.edges else 'READY: press RED, GREEN, YELLOW, BLUE once each, in order.' if args.colors else 'READY: press the requested control button.' if args.one else 'READY: press Home, Back, Up, Down, Left, Right, OK, Volume Up, Volume Down, Play/Pause in order.', flush=True)
     started = time.monotonic()
     deadline = time.monotonic() + (300 if args.mic_test else 120)
     while time.monotonic() < deadline:
@@ -50,6 +61,18 @@ try:
             data = os.read(fd, event.size * 64)
             for offset in range(0, len(data), event.size):
                 _, _, kind, code, value = event.unpack_from(data, offset)
+                if kind == 4 and code == 4:  # EV_MSC / MSC_SCAN precedes its key
+                    last_scan[fd] = value
+                    continue
+                if args.scan and kind == 1 and value == 1 and code in allowed:
+                    # Only control buttons are reported, never typed keys.
+                    scan = last_scan.pop(fd, None)
+                    shown = f'0x{scan & 0xffffffff:x}' if scan is not None else 'none'
+                    print(f'{names.get(code, str(code))} scan={shown} on {nodes[fd]}', flush=True)
+                    captured += 1
+                    if captured == 4:
+                        raise SystemExit(0)
+                    continue
                 if (args.edges or args.mic_test) and kind == 1 and code in allowed:
                     # Report only control buttons, including KEY_VOICECOMMAND.
                     label = names.get(code, str(code))
