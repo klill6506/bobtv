@@ -247,3 +247,14 @@ just to work on this machine, since this session already has local access.
 - Forwarded serve host/port CLI options; required a password for non-loopback listeners, enforced exact request origins, and kept voice controls local-only. Unicode passwords are supported.
 - Restricted all remote probe modes to control-button events; ordinary typing is excluded.
 - Validation: 57 Python tests passed, including remote authentication and integration regressions; both JavaScript files passed syntax checks. Hardware playback, microphone recognition, and iPhone operation were not exercised during this review.
+
+## HDMI-CEC TV control — September 28
+- Pulse-Eight USB-CEC adapter wired in line on the MeLE's HDMI run and detected as `/dev/ttyACM0`. The kernel `pulse8-cec` route (`/dev/cec0`) is not used; libcec talks to the serial device directly. Installed `libcec` (7.1.1) and added ken to the `uucp` group for device access.
+- Bravia Sync was already enabled on the TV, and the Roku was already using CEC, so nothing about the existing setup changed.
+- Bus scan sees the Sony TV at 0.0.0.0, the adapter at 2.0.0.0 (HDMI 2, as wired) and the Roku Streambar at 3.0.0.0.
+- `bobtv.py` gained a `tv` subcommand (`on`, `off`, `here`) and an optional `tv` block in `services.json` (`enabled`, `address`, `hold_seconds`, `device`). Settings are validated in `load_config` like every other section.
+- `launch()` wakes the TV and claims BobTV's input, but **only after the VPN region is verified** and never on `--check-only`: a launch that does not open must leave the room as it found it. A CEC failure is printed and ignored, so the TV can never stop a service from opening. Every caller benefits, including the home screen and the phone remote, which both call `bobtv.launch` directly.
+- `cec()` holds the connection open (default six seconds) before sending `q`, because a Sony drops an active-source claim from a client that exits immediately, and cec-client does not exit on EOF.
+- Verified on hardware: standby and wake both reported by the TV; input switching pulled the TV off the Roku back to BobTV; and with the TV in standby, `launch youtube` woke it and opened the service. Chromium must be launched with the desktop session's `WAYLAND_DISPLAY`, so a plain SSH shell cannot test that last step.
+- 82 automated tests pass, up from 57. `tests/test_tv.py` is new and never touches the adapter. Existing tests in `test_bobtv.py` and `test_home.py` now hold `tv_wake` still, because their `Popen` mock previously meant "the browser" and CEC also spawns a process.
+- Not done: mapping a remote button to `bobtv tv off`, and deciding whether the TV should sleep when BobTV is idle.

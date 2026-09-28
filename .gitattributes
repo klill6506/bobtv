@@ -1,0 +1,10 @@
+# BobTV runs on Linux. Keep LF in the working tree on every machine so files
+# copied to the MeLE never arrive with CRLF, which breaks systemd units and
+# shell scripts and makes every sync look like a whole-file change.
+* text=auto eol=lf
+
+*.png binary
+*.jpg binary
+*.wav binary
+*.mp3 binary
+*.ico binary

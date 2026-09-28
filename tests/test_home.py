@@ -28,6 +28,11 @@ class HomeFocusTests(unittest.TestCase):
 class DirectTests(unittest.TestCase):
     def setUp(self):
         self.config = bobtv.load_config(Path('services.json'))
+        # TV control also spawns a process; hold it still so the Popen mock in
+        # these tests still means "the browser". tests/test_tv.py covers the TV.
+        wake = patch('bobtv.tv_wake')
+        self.addCleanup(wake.stop)
+        wake.start()
 
     @patch('bobtv.vpn', side_effect=['Status: Connected\nCountry: United Kingdom', 'Disconnected', 'Status: Disconnected'])
     def test_disconnect_verified(self, vpn):

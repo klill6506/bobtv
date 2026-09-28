@@ -3,6 +3,11 @@
     "chromium",
     "--new-window"
   ],
+  "tv": {
+    "enabled": true,
+    "address": "0",
+    "hold_seconds": 6
+  },
   "regions": {
     "uk": {
       "nordvpn_target": "United_Kingdom",

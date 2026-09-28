@@ -16,6 +16,12 @@ class ActionTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.state = Path(self.temp.name)
+        # These tests are about the VPN and the browser. TV control also spawns a
+        # process, so hold it still and let the Popen mock mean "the browser".
+        # tests/test_tv.py covers the TV.
+        wake = patch("bobtv.tv_wake")
+        self.addCleanup(wake.stop)
+        wake.start()
 
     @patch("bobtv.shutil.which", return_value="/usr/bin/tool")
     @patch("bobtv.subprocess.Popen")
