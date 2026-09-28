@@ -181,6 +181,16 @@ def tv_command(config, state):
     print("TV on, showing BobTV.")
 
 
+# The camera is a Home Assistant view on this machine. The doorbell may only ever
+# open a Home Assistant page on loopback: a ring must never open an arbitrary URL.
+DOORBELL_URL_PREFIX = "http://127.0.0.1:8123/"
+DOORBELL_DEFAULTS = {"enabled": False, "url": DOORBELL_URL_PREFIX + "bobtv-home/doorbell", "seconds": 30}
+
+
+def doorbell_settings(config):
+    return {**DOORBELL_DEFAULTS, **config.get("doorbell", {})}
+
+
 def load_config(path):
     try:
         config = json.loads(path.read_text())
@@ -220,6 +230,20 @@ def load_config(path):
         device = tv.get("device")
         if device is not None and (not isinstance(device, str) or not device.startswith("/dev/")):
             raise ValueError("tv.device must be a path under /dev")
+        bell = config.get("doorbell", {})
+        if not isinstance(bell, dict):
+            raise ValueError("doorbell must be an object")
+        if set(bell) - set(DOORBELL_DEFAULTS):
+            raise ValueError(f"unknown doorbell settings: {sorted(set(bell) - set(DOORBELL_DEFAULTS))}")
+        if not isinstance(bell.get("enabled", False), bool):
+            raise ValueError("doorbell.enabled must be true or false")
+        url = bell.get("url", DOORBELL_DEFAULTS["url"])
+        if (not isinstance(url, str) or not url.startswith(DOORBELL_URL_PREFIX)
+                or any(ch.isspace() for ch in url) or ".." in url):
+            raise ValueError(f"doorbell.url must be a Home Assistant page under {DOORBELL_URL_PREFIX}")
+        seconds = bell.get("seconds", DOORBELL_DEFAULTS["seconds"])
+        if isinstance(seconds, bool) or not isinstance(seconds, (int, float)) or not 5 <= seconds <= 300:
+            raise ValueError("doorbell.seconds must be a number between 5 and 300")
         return config
     except (OSError, ValueError, KeyError, TypeError, AttributeError) as exc:
         raise ActionError(f"Invalid configuration {path}: {exc}") from exc
@@ -293,6 +317,7 @@ def main():
     sub.add_parser("release", help="Turn NordVPN off after watching a VPN service")
     tv = sub.add_parser("tv", help="Turn the TV on or off, or pull it to BobTV's input")
     tv.add_argument("state", choices=("on", "off", "here", "toggle"))
+    sub.add_parser("doorbell", help="Show the front-door camera now, as a ring would")
     args = parser.parse_args()
     try:
         config = load_config(args.config)
@@ -305,6 +330,10 @@ def main():
                 print(f"{service_id}\t{service['name']}\t{service['region']}")
         elif args.command == "tv":
             tv_command(config, args.state)
+        elif args.command == "doorbell":
+            import doorbell
+            state = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "bobtv"
+            print(doorbell.show(config, state))
         else:
             state = Path(os.environ.get("XDG_STATE_HOME", str(Path.home() / ".local/state"))) / "bobtv"
             if args.command == "release":

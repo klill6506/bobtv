@@ -23,6 +23,7 @@ import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from urllib.request import urlopen
 import bobtv
+import doorbell
 import whatson
 from voice_control import VoiceController
 
@@ -160,6 +161,26 @@ def make_server(config_path, port=PORT, host=HOST):
         def do_POST(self):
             if not self.valid_host(): return
             if not self.authorized(): return
+            if self.path == '/api/doorbell':
+                # Home Assistant, on this machine. It cannot do the browser's
+                # token dance, so it carries its own secret in a header that a web
+                # page cannot set cross-origin. Loopback only, never the tailnet.
+                expected = doorbell.load_secret()
+                sent = self.headers.get('X-BobTV-Doorbell', '')
+                if (not self.client_is_local() or not expected
+                        or not secrets.compare_digest(sent.encode('utf-8'), expected.encode('utf-8'))):
+                    self.reply(403, {'error': 'Untrusted request'}); return
+                try:
+                    config = bobtv.load_config(config_path)
+                    if not bobtv.doorbell_settings(config)['enabled']:
+                        raise bobtv.ActionError('Doorbell display is off.')
+                except (bobtv.ActionError, OSError) as exc:
+                    self.reply(409, {'error': str(exc)}); return
+                state = Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'bobtv'
+                # Reply at once: the camera stays up far longer than Home Assistant waits.
+                threading.Thread(target=doorbell.run_quietly, args=(config, state), daemon=True).start()
+                self.reply(202, {'message': 'Showing the front door.'})
+                return
             origin = self.headers.get('Origin', '')
             if (origin != 'http://' + self.headers.get('Host', '')
                     or not secrets.compare_digest(self.headers.get('X-BobTV-Token', ''), token)):

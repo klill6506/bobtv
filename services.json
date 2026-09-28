@@ -8,6 +8,11 @@
     "address": "0",
     "hold_seconds": 6
   },
+  "doorbell": {
+    "enabled": true,
+    "url": "http://127.0.0.1:8123/bobtv-home/doorbell",
+    "seconds": 30
+  },
   "regions": {
     "uk": {
       "nordvpn_target": "United_Kingdom",
