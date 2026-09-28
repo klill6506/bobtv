@@ -258,3 +258,11 @@ just to work on this machine, since this session already has local access.
 - Verified on hardware: standby and wake both reported by the TV; input switching pulled the TV off the Roku back to BobTV; and with the TV in standby, `launch youtube` woke it and opened the service. Chromium must be launched with the desktop session's `WAYLAND_DISPLAY`, so a plain SSH shell cannot test that last step.
 - 82 automated tests pass, up from 57. `tests/test_tv.py` is new and never touches the adapter. Existing tests in `test_bobtv.py` and `test_home.py` now hold `tv_wake` still, because their `Popen` mock previously meant "the browser" and CEC also spawns a process.
 - Not done: mapping a remote button to `bobtv tv off`, and deciding whether the TV should sleep when BobTV is idle.
+
+## Remote power button — September 28
+- `bobtv tv toggle` asks the TV for its power state over CEC, then sends standby if it is on or waking, and wakes it to BobTV's input otherwise. A TV that will not answer is woken, because waking a TV that is already on only claims the input.
+- The MX3 power button (`XF86PowerOff`) is bound to `bobtv tv toggle` in `~/.config/hypr/bindings.lua`, with `locked = true` so it works on a locked screen. Backup before the change: `bindings.lua.before-tv-power`.
+- This replaces Omarchy's own `XF86PowerOff` binding, which opened the system power menu, via `hl.unbind` as Omarchy's config documents. On a TV that put a shutdown menu one press away. The system menu is still on SUPER + ESCAPE. logind's `HandlePowerKey=ignore` was already set, so the key cannot shut the MeLE down.
+- Side effect: the MeLE's own chassis power button sends the same key, so it toggles the TV too.
+- Hyprland reloaded with no config errors; exactly one binding on the power key; the Home, voice and SUPER + ESCAPE bindings are intact. The toggle was verified on the TV in both directions from the command line. The physical remote press still needs Ken's test.
+- 93 automated tests pass.

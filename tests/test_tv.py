@@ -177,6 +177,82 @@ class TvActionTests(unittest.TestCase):
         cec.assert_not_called()
 
 
+class PowerQueryTests(unittest.TestCase):
+    def setUp(self):
+        self.config = {"tv": {"enabled": True, "address": "0"}}
+
+    def run_with(self, stdout):
+        with patch("bobtv.shutil.which", return_value="/usr/bin/cec-client"), \
+             patch("bobtv.subprocess.run") as run:
+            run.return_value = MagicMock(stdout=stdout)
+            return bobtv.tv_power(self.config), run
+
+    def test_reads_on_and_standby(self):
+        self.assertEqual(self.run_with("opening...\npower status: on\n")[0], "on")
+        self.assertEqual(self.run_with("power status: standby\n")[0], "standby")
+
+    def test_reads_transitions(self):
+        text = "power status: in transition from standby to on\n"
+        self.assertEqual(self.run_with(text)[0], "in transition from standby to on")
+
+    def test_says_none_when_the_tv_will_not_answer(self):
+        self.assertIsNone(self.run_with("opening a connection to the CEC adapter...\n")[0])
+
+    def test_asks_the_configured_address_in_one_shot_mode(self):
+        _, run = self.run_with("power status: on\n")
+        self.assertEqual(run.call_args.kwargs["input"], "pow 0\n")
+        self.assertIn("-s", run.call_args.args[0])
+
+    def test_a_hung_query_is_an_action_error(self):
+        with patch("bobtv.shutil.which", return_value="/usr/bin/cec-client"), \
+             patch("bobtv.subprocess.run", side_effect=subprocess.TimeoutExpired("cec-client", 20)):
+            with self.assertRaises(bobtv.ActionError):
+                bobtv.tv_power(self.config)
+
+
+class ToggleTests(unittest.TestCase):
+    """The remote's power button."""
+
+    def setUp(self):
+        self.config = {"tv": {"enabled": True, "address": "0", "hold_seconds": 0}}
+
+    def toggle_when(self, power):
+        with patch("bobtv.tv_power", return_value=power), \
+             patch("bobtv.tv_standby") as standby, patch("bobtv.tv_wake") as wake:
+            bobtv.tv_command(self.config, "toggle")
+        return standby, wake
+
+    def test_an_on_tv_goes_to_standby(self):
+        standby, wake = self.toggle_when("on")
+        standby.assert_called_once()
+        wake.assert_not_called()
+
+    def test_a_tv_waking_up_is_treated_as_on(self):
+        standby, wake = self.toggle_when("in transition from standby to on")
+        standby.assert_called_once()
+        wake.assert_not_called()
+
+    def test_a_standby_tv_wakes_to_bobtv(self):
+        standby, wake = self.toggle_when("standby")
+        wake.assert_called_once()
+        standby.assert_not_called()
+
+    def test_a_tv_going_to_sleep_is_woken_again(self):
+        standby, wake = self.toggle_when("in transition from on to standby")
+        wake.assert_called_once()
+
+    def test_a_silent_tv_is_woken_because_that_is_harmless(self):
+        standby, wake = self.toggle_when(None)
+        wake.assert_called_once()
+        standby.assert_not_called()
+
+    @patch("bobtv.tv_power")
+    def test_toggle_refuses_when_disabled(self, power):
+        with self.assertRaises(bobtv.ActionError):
+            bobtv.tv_command({"tv": {"enabled": False}}, "toggle")
+        power.assert_not_called()
+
+
 class LaunchIntegrationTests(unittest.TestCase):
     """The TV must never be able to stop a service from opening."""
 

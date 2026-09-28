@@ -133,10 +133,42 @@ def tv_standby(config):
     cec(settings, [f"standby {settings['address']}"], hold=2)
 
 
+# libcec's words for a TV that is on or on its way there.
+TV_ON_STATES = ("on", "in transition from standby to on")
+
+
+def tv_power(config):
+    """Ask the TV whether it is on. Returns libcec's own words, or None if it will not say."""
+    if not shutil.which("cec-client"):
+        raise ActionError("cec-client not found; install the libcec package.")
+    settings = tv_settings(config)
+    args = ["cec-client", "-s", "-d", "1"]
+    if settings["device"]:
+        args.append(settings["device"])
+    try:
+        result = subprocess.run(
+            args, input=f"pow {settings['address']}\n", capture_output=True, text=True, timeout=20,
+        )
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        raise ActionError(f"The CEC adapter did not respond: {exc}") from exc
+    match = re.search(r"power status:\s*(.+)", result.stdout)
+    return match[1].strip().casefold() if match else None
+
+
 def tv_command(config, state):
     settings = tv_settings(config)
     if not settings["enabled"]:
         raise ActionError('TV control is off. Set "enabled": true in the tv section of services.json.')
+    if state == "toggle":
+        # A power button. When the TV will not say, wake it: waking a TV that is
+        # already on only claims the input, which is harmless.
+        if tv_power(config) in TV_ON_STATES:
+            tv_standby(config)
+            print("TV off.")
+        else:
+            tv_wake(config)
+            print("TV on, showing BobTV.")
+        return
     if state == "off":
         tv_standby(config)
         print("TV off.")
@@ -260,7 +292,7 @@ def main():
     action.add_argument("--check-only", action="store_true", help="Ensure VPN region without opening Chromium")
     sub.add_parser("release", help="Turn NordVPN off after watching a VPN service")
     tv = sub.add_parser("tv", help="Turn the TV on or off, or pull it to BobTV's input")
-    tv.add_argument("state", choices=("on", "off", "here"))
+    tv.add_argument("state", choices=("on", "off", "here", "toggle"))
     args = parser.parse_args()
     try:
         config = load_config(args.config)
