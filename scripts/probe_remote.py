@@ -15,6 +15,8 @@ parser.add_argument('--edges', action='store_true', help='Show button press/rele
 parser.add_argument('--mic-test', action='store_true', help='Wait for Home, then observe the mic button for 20 seconds')
 parser.add_argument('--scan', action='store_true',
                     help='Show the raw hardware scan code behind four control-button presses, then stop')
+parser.add_argument('--map', action='store_true',
+                    help='Ask for Back, OK, Menu, Play/Pause, Volume and Mute one at a time and report each')
 args = parser.parse_args()
 
 names = {}
@@ -46,6 +48,41 @@ try:
         fcntl.ioctl(fd, 0x40044590, 1)  # EVIOCGRAB; released on close
     if not opened:
         raise RuntimeError('MX3 receiver not found')
+    if args.map:
+        # One button at a time, waiting for each, so a press the sleeping remote
+        # swallows only means pressing it again rather than a misaligned map.
+        buttons = ['BACK', 'OK (centre of the ring)', 'MENU', 'PLAY/PAUSE', 'VOLUME UP', 'VOLUME DOWN', 'MUTE']
+        mappable = allowed | {14}  # KEY_BACKSPACE: some remotes send it for Back; it reveals no text
+        scans, results = {}, []
+        print('READY. Press each button when asked. If nothing appears, press it again.', flush=True)
+        for button in buttons:
+            print(f'Press {button} ...', flush=True)
+            found = None
+            until = time.monotonic() + 30
+            while found is None and time.monotonic() < until:
+                ready, _, _ = select.select(opened, [], [], 1)
+                for fd in ready:
+                    data = os.read(fd, event.size * 64)
+                    for offset in range(0, len(data), event.size):
+                        _, _, kind, code, value = event.unpack_from(data, offset)
+                        if kind == 4 and code == 4:
+                            scans[fd] = value
+                        elif kind == 1 and value == 1 and code in mappable and found is None:
+                            scan = scans.pop(fd, None)
+                            shown = f'0x{scan & 0xffffffff:x}' if scan is not None else 'none'
+                            found = f'{names.get(code, str(code))} scan={shown} on {nodes[fd]}'
+            line = f'{button}: {found or "nothing within 30 seconds"}'
+            results.append(line)
+            print('  ' + line, flush=True)
+            drain_until = time.monotonic() + 0.5  # the release and any repeat belong to this button
+            while time.monotonic() < drain_until:
+                ready, _, _ = select.select(opened, [], [], 0.1)
+                for fd in ready:
+                    os.read(fd, event.size * 64)
+        print('SUMMARY', flush=True)
+        for line in results:
+            print(line, flush=True)
+        raise SystemExit(0)
     colors = iter(['RED', 'GREEN', 'YELLOW', 'BLUE'])
     captured = 0
     last_scan = {}  # fd -> the MSC_SCAN value that arrived just before a key

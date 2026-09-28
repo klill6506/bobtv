@@ -25,6 +25,7 @@ from urllib.request import urlopen
 import bobtv
 import doorbell
 import whatson
+import windows
 from voice_control import VoiceController
 
 ROOT = Path(__file__).resolve().parent
@@ -237,24 +238,64 @@ def make_server(config_path, port=PORT, host=HOST):
     return server
 
 
-def focus_home():
-    """Reuse the home window, including when a streaming window covers it."""
+HOME_PROFILE = str(Path.home() / '.local/share/bobtv/home-browser')
+LANDING_TITLES = ('BobTV', 'BobTV - Chromium')
+
+
+def _state_dir():
+    return Path(os.environ.get('XDG_STATE_HOME', str(Path.home() / '.local/state'))) / 'bobtv'
+
+
+def is_home_browser(pid):
+    """True for the home-screen Chromium, found by its profile rather than its title.
+
+    The title changes when the home window shows Home Assistant, which is how a
+    second home window used to get opened.
+    """
     try:
-        result = subprocess.run(['hyprctl', '-j', 'clients'], capture_output=True, text=True, timeout=3, check=True)
-        for client in json.loads(result.stdout):
-            if client.get('title') not in ('BobTV', 'BobTV - Chromium'):
-                continue
-            if 'chromium' not in client.get('class', '').lower():
-                continue
-            address = client.get('address', '')
-            if not re.fullmatch(r'0x[0-9a-fA-F]+', address):
-                continue
-            result = subprocess.run(['hyprctl', 'dispatch', 'hl.dsp.focus({ window = "address:' + address + '" })'], capture_output=True, text=True, timeout=3)
-            if result.returncode == 0:
-                return True
-    except (OSError, subprocess.SubprocessError, ValueError):
-        pass
-    return False
+        args = Path(f'/proc/{int(pid)}/cmdline').read_bytes().split(b'\0')
+    except (OSError, ValueError, TypeError):
+        return False
+    return ('--user-data-dir=' + HOME_PROFILE).encode() in args
+
+
+def home_windows(state=None):
+    """Home-screen windows, oldest first, never counting the doorbell camera."""
+    state = state or _state_dir()
+    try:
+        camera = (state / doorbell.CAMERA_FILE).read_text().strip()
+    except OSError:
+        camera = ''
+    return [(address, client) for address, client in windows.clients().items()
+            if address != camera and 'chromium' in client.get('class', '').lower()
+            and is_home_browser(client.get('pid'))]
+
+
+def show_only(keep, found):
+    """Close every other home window, then put `keep` in front and fullscreen."""
+    for address, _ in found:
+        if address != keep:
+            windows.close(address)
+    windows.focus(keep)
+    if not windows.clients().get(keep, {}).get('fullscreen'):
+        windows.make_fullscreen()
+
+
+def focus_home(state=None):
+    """Reuse the one home window showing BobTV, fullscreen, closing any duplicates.
+
+    False when there is no home window showing the BobTV landing page, so the
+    caller opens a fresh one.
+    """
+    try:
+        found = home_windows(state)
+        landing = [address for address, client in found if client.get('title') in LANDING_TITLES]
+        if not landing:
+            return False
+        show_only(landing[0], found)
+        return True
+    except (bobtv.ActionError, OSError, ValueError):
+        return False
 
 
 def run(command, config_path, host=None, port=None):
@@ -290,9 +331,27 @@ def run(command, config_path, host=None, port=None):
             except OSError:
                 time.sleep(.1)
         else: raise bobtv.ActionError('Home server did not become ready.')
-    if focus_home():
+    # Home means stop watching (Ken, 2026-09-28): the show and any doorbell
+    # camera close, and only one home window is left.
+    state = _state_dir()
+    try:
+        bobtv.close_show(state)
+        windows.close_remembered(state / doorbell.CAMERA_FILE)
+    except (bobtv.ActionError, OSError):
+        pass
+    if focus_home(state):
         print('Returned to BobTV home.')
         return 0
-    subprocess.Popen(['chromium', '--user-data-dir=' + str(Path.home() / '.local/share/bobtv/home-browser'), '--no-first-run', '--kiosk', probe], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    before = bobtv.window_snapshot()
+    subprocess.Popen(['chromium', '--user-data-dir=' + HOME_PROFILE, '--no-first-run', '--kiosk', probe], stdin=subprocess.DEVNULL, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL, start_new_session=True)
+    # A home window showing Home Assistant stays open until the fresh one is up,
+    # because closing a browser's last window would quit it.
+    if before is not None:
+        try:
+            fresh = windows.wait_for_new_window(before, timeout=8)
+            if fresh:
+                show_only(fresh, home_windows(state))
+        except (bobtv.ActionError, OSError, ValueError):
+            pass
     print('Opened BobTV home. Alt+F4 closes the home window.')
     return 0

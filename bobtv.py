@@ -276,6 +276,9 @@ def launch(config, service_id, state_dir, check_only=False):
                 tv_wake(config)
             except (ActionError, OSError) as exc:
                 print(f"BobTV: could not control the TV ({exc})", file=sys.stderr)
+        # Never more than one show: the previous one goes before the new one opens.
+        close_show(state_dir)
+        before = window_snapshot()
         with (state_dir / "browser.log").open("ab") as log:
             process = subprocess.Popen(
                 [*config["browser"], service["url"]], stdin=subprocess.DEVNULL,
@@ -287,7 +290,40 @@ def launch(config, service_id, state_dir, check_only=False):
                 code = None
             if code not in (None, 0):
                 raise ActionError(f"Chromium exited with code {code}; see {state_dir / 'browser.log'}")
+        remember_show(before, state_dir)
         print(f"Launched {service['name']} using {connection}.")
+
+
+# The one service window BobTV opened last, so Home and the next launch can close
+# exactly that window and nothing else. Window tracking is best effort: if
+# Hyprland cannot be asked, the service still opens.
+SHOW_FILE = "show-window"
+
+
+def window_snapshot():
+    try:
+        import windows
+        return windows.clients()
+    except (ActionError, OSError):
+        return None
+
+
+def remember_show(before, state_dir):
+    if before is None:
+        return
+    try:
+        import windows
+        window = windows.wait_for_new_window(before, timeout=8)
+        if window:
+            windows.remember(state_dir / SHOW_FILE, window)
+    except (ActionError, OSError):
+        pass
+
+
+def close_show(state_dir):
+    """Close the service window BobTV opened last, if it is still open."""
+    import windows
+    return windows.close_remembered(state_dir / SHOW_FILE)
 
 
 def release(state_dir):

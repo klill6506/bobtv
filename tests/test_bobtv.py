@@ -22,6 +22,11 @@ class ActionTests(unittest.TestCase):
         wake = patch("bobtv.tv_wake")
         self.addCleanup(wake.stop)
         wake.start()
+        # Window tracking asks Hyprland; keep these tests off the real desktop.
+        for target in ("bobtv.window_snapshot", "bobtv.close_show"):
+            patcher = patch(target, return_value=None)
+            self.addCleanup(patcher.stop)
+            patcher.start()
 
     @patch("bobtv.shutil.which", return_value="/usr/bin/tool")
     @patch("bobtv.subprocess.Popen")

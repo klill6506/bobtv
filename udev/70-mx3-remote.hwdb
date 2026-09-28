@@ -1,0 +1,7 @@
+# MX3 air-mouse remote (USB 1915:1025). Its Back button sends the keyboard
+# Application key (HID usage 0x70065, KEY_COMPOSE), which browsers treat as
+# "open the right-click menu". Make it a real Back key, which Chromium, and so
+# BobTV, Home Assistant and every streaming site, understands as "go back".
+# Only this remote is affected. See BobTV docs/status.md.
+evdev:input:b0003v1915p1025*
+ KEYBOARD_KEY_70065=back

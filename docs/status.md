@@ -286,3 +286,13 @@ just to work on this machine, since this session already has local access.
 - Verified on hardware by calling the endpoint with the TV in standby: TV woke (on at +15s), back to standby at +50s, camera window gone, home screen fullscreen again, the YouTube window untouched. 117 tests pass.
 - Not yet verified: a real press of the doorbell, which needs a Home Assistant restart to load `rest_command`; and whether the live picture itself plays, since Ring's WebRTC feed broke once in HA 2026.7.
 - Note: `configuration.yaml` says `server_host: 127.0.0.1`, but Home Assistant answers on the Tailscale address too. Ken used that to sign in to Ring from his PC.
+
+## Home, Back and one show at a time — September 28
+- Ken's call: Home means stop watching. `bobtv home` (the remote's Home, and the phone remote's Home, which calls the same code) now closes the service window BobTV opened and any doorbell camera, then shows the one home window full screen.
+- `launch()` closes the previous show before opening a new one and remembers the new window's Hyprland address in `~/.local/state/bobtv/show-window`, so there is never more than the home screen plus one show. Only a window BobTV opened is ever closed. Tracking is best effort: if Hyprland cannot be asked, the service still opens.
+- The home window is now found by its browser profile (`--user-data-dir=.../home-browser` in the process's command line), not its title. When the home window showed Home Assistant its title changed, BobTV failed to recognise it and opened a second home window: one cause of the duplicate windows Ken saw. Duplicate home windows are closed; a home window showing Home Assistant stays open until a fresh home window is up, because closing a browser's last window quits it.
+- Window handling moved into `windows.py`, shared by the doorbell, launch and Home.
+- Measured the remote with `probe_remote.py --map`: Back sends KEY_COMPOSE (scan 0x70065, the keyboard's Application/Menu key), which Chromium treats as "open the right-click menu", so Back appeared dead. OK sends BTN_LEFT, a mouse click at the pointer, not Enter. Menu sends KEY_HOMEPAGE, like Home. Play/Pause, Volume and Mute send the standard media keys.
+- Back fix: `udev/70-mx3-remote.hwdb` remaps scan 0x70065 on this remote only (USB 1915:1025) to KEY_BACK, which Chromium understands as history back, so it works in BobTV, Home Assistant and streaming sites. Needs installing with sudo.
+- Doorbell now pauses whatever is playing on BobTV (via `omarchy-shell media status/pause/play`, which reads MPRIS) and resumes it after the camera closes, only if it paused it.
+- 134 tests pass.

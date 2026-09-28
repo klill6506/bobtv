@@ -10,20 +10,105 @@ from urllib.error import HTTPError
 import bobtv
 import home_server
 
-class HomeFocusTests(unittest.TestCase):
-    @patch('home_server.subprocess.run')
-    def test_reuses_home_without_focusing_stream(self, run):
-        run.return_value.stdout = json.dumps([
-            {'title': 'Prime Video', 'class': 'chromium', 'address': '0x123'},
-            {'title': 'BobTV', 'class': 'chromium', 'address': '0x456'},
-        ])
-        run.return_value.returncode = 0
-        self.assertTrue(home_server.focus_home())
-        self.assertIn('address:0x456', run.call_args.args[0][-1])
+HOME_PID, SHOW_PID = 111, 222
 
-    @patch('home_server.subprocess.run', side_effect=FileNotFoundError)
-    def test_missing_desktop_allows_new_window(self, run):
-        self.assertFalse(home_server.focus_home())
+
+class HomeFocusTests(unittest.TestCase):
+    """The home window is found by its browser profile, not its title."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.state = Path(self.temp.name)
+        self.windows = {}
+        self.log = []
+        for name, value in (('clients', lambda: {a: dict(w) for a, w in self.windows.items()}),
+                            ('focus', lambda a: self.log.append(('focus', a))),
+                            ('close', lambda a: (self.log.append(('close', a)), self.windows.pop(a, None))),
+                            ('make_fullscreen', lambda: self.log.append(('fullscreen',)))):
+            patcher = patch('windows.' + name, side_effect=value)
+            self.addCleanup(patcher.stop)
+            patcher.start()
+        profile = patch('home_server.is_home_browser', side_effect=lambda pid: pid == HOME_PID)
+        self.addCleanup(profile.stop)
+        profile.start()
+
+    def window(self, address, title, pid, fullscreen=0):
+        self.windows[address] = {'address': address, 'title': title, 'class': 'chromium',
+                                 'pid': pid, 'fullscreen': fullscreen}
+
+    def test_reuses_home_without_focusing_stream(self):
+        self.window('0x123', 'Prime Video', SHOW_PID)
+        self.window('0x456', 'BobTV', HOME_PID)
+        self.assertTrue(home_server.focus_home(self.state))
+        self.assertIn(('focus', '0x456'), self.log)
+        self.assertNotIn(('focus', '0x123'), self.log)
+        self.assertNotIn(('close', '0x123'), self.log, 'focus_home never closes a show')
+
+    def test_home_is_made_fullscreen(self):
+        self.window('0x456', 'BobTV', HOME_PID, fullscreen=0)
+        home_server.focus_home(self.state)
+        self.assertIn(('fullscreen',), self.log)
+
+    def test_duplicate_home_windows_are_closed(self):
+        self.window('0x456', 'BobTV', HOME_PID)
+        self.window('0x789', 'BobTV Smart Home – Home Assistant - Chromium', HOME_PID)
+        self.window('0x999', 'BobTV', HOME_PID)
+        self.assertTrue(home_server.focus_home(self.state))
+        self.assertEqual(sorted(entry[1] for entry in self.log if entry[0] == 'close'), ['0x789', '0x999'])
+        self.assertIn('0x456', self.windows)
+
+    def test_a_home_window_on_home_assistant_needs_a_fresh_home(self):
+        self.window('0x789', 'BobTV Smart Home – Home Assistant - Chromium', HOME_PID)
+        self.assertFalse(home_server.focus_home(self.state))
+        self.assertNotIn(('close', '0x789'), self.log, 'never close the last window of the browser')
+
+    def test_the_doorbell_camera_is_not_mistaken_for_home(self):
+        self.window('0x456', 'BobTV', HOME_PID)
+        self.window('0xcafe', 'BobTV', HOME_PID)
+        (self.state / 'doorbell-window').write_text('0xcafe')
+        home_server.focus_home(self.state)
+        self.assertNotIn(('close', '0xcafe'), self.log)
+
+    def test_missing_desktop_allows_new_window(self):
+        with patch('windows.clients', side_effect=bobtv.ActionError('no desktop')):
+            self.assertFalse(home_server.focus_home(self.state))
+
+
+class ProfileTests(unittest.TestCase):
+    def test_the_home_profile_is_recognised_from_the_command_line(self):
+        args = b'\0'.join([b'/usr/lib/chromium/chromium', b'--user-data-dir=' + home_server.HOME_PROFILE.encode(), b'--kiosk'])
+        with patch('home_server.Path.read_bytes', return_value=args):
+            self.assertTrue(home_server.is_home_browser(19680))
+        with patch('home_server.Path.read_bytes', return_value=b'/usr/lib/chromium/chromium\0--new-window'):
+            self.assertFalse(home_server.is_home_browser(45379))
+
+    def test_a_missing_or_bad_pid_is_not_home(self):
+        self.assertFalse(home_server.is_home_browser(None))
+        self.assertFalse(home_server.is_home_browser('x'))
+        self.assertFalse(home_server.is_home_browser(2 ** 30))
+
+
+class HomeButtonTests(unittest.TestCase):
+    """Home means stop watching: the show and the doorbell camera close."""
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.state = Path(self.temp.name)
+
+    @patch('home_server.focus_home', return_value=True)
+    @patch('home_server.urlopen')
+    def test_home_closes_the_show_and_the_camera(self, urlopen_, focus):
+        urlopen_.return_value.__enter__.return_value.read.return_value = b'{"app": "bobtv"}'
+        with patch('home_server.json.load', return_value={'app': 'bobtv'}), \
+             patch('home_server._state_dir', return_value=self.state), \
+             patch('bobtv.close_show') as close_show, \
+             patch('windows.close_remembered') as close_camera:
+            self.assertEqual(home_server.run('home', Path('services.json')), 0)
+        close_show.assert_called_once_with(self.state)
+        self.assertEqual(close_camera.call_args.args[0], self.state / 'doorbell-window')
+        focus.assert_called_once_with(self.state)
 
 class DirectTests(unittest.TestCase):
     def setUp(self):
@@ -33,6 +118,10 @@ class DirectTests(unittest.TestCase):
         wake = patch('bobtv.tv_wake')
         self.addCleanup(wake.stop)
         wake.start()
+        for target in ('bobtv.window_snapshot', 'bobtv.close_show'):
+            patcher = patch(target, return_value=None)
+            self.addCleanup(patcher.stop)
+            patcher.start()
 
     @patch('bobtv.vpn', side_effect=['Status: Connected\nCountry: United Kingdom', 'Disconnected', 'Status: Disconnected'])
     def test_disconnect_verified(self, vpn):

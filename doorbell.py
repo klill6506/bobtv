@@ -1,29 +1,28 @@
 """Show the front-door camera on the TV when the doorbell rings.
 
 Home Assistant calls POST /api/doorbell on the home server (loopback only, with a
-shared secret). This module puts the live camera in front of whatever is on
-screen, wakes the TV and takes its input, then after a while takes the camera
-away and puts things back as they were. A TV that was off goes back to standby,
-so a late-night ring does not leave it on all night.
+shared secret). This module pauses whatever is playing on BobTV, puts the live
+camera in front, wakes the TV and takes its input, then after a while takes the
+camera away and puts things back as they were: the window in front, its
+fullscreen, and playback. A TV that was off goes back to standby, so a
+late-night ring does not leave it on all night.
 
 The camera is a Home Assistant dashboard view opened in the home-screen browser,
-which is already signed in to Home Assistant. Windows are handled through
-Hyprland, and every window is addressed by the address Hyprland gave it, never
-"the active window", so the camera can never close the show underneath.
+which is already signed in to Home Assistant. Window handling is in windows.py.
 """
 import fcntl
 import json
 import logging
 from pathlib import Path
-import re
 import subprocess
 import time
 
 import bobtv
+import windows
 
 SECRET_FILE = Path.home() / ".config/bobtv/doorbell.json"
 HOME_PROFILE = Path.home() / ".local/share/bobtv/home-browser"
-_ADDRESS = re.compile(r"0x[0-9a-fA-F]+")
+CAMERA_FILE = "doorbell-window"  # in the state dir, so Home can dismiss the camera
 _log = logging.getLogger(__name__)
 
 
@@ -36,44 +35,6 @@ def load_secret(path=SECRET_FILE):
     return value if isinstance(value, str) and len(value) >= 32 else None
 
 
-def hyprctl(*args):
-    try:
-        result = subprocess.run(["hyprctl", *args], capture_output=True, text=True, timeout=5)
-    except (OSError, subprocess.TimeoutExpired) as exc:
-        raise bobtv.ActionError(f"hyprctl failed: {exc}") from exc
-    if result.returncode:
-        raise bobtv.ActionError(f"hyprctl failed: {(result.stderr or result.stdout).strip()}")
-    return result.stdout
-
-
-def clients():
-    return {c["address"]: c for c in json.loads(hyprctl("-j", "clients") or "[]")}
-
-
-def active_window():
-    data = json.loads(hyprctl("-j", "activewindow") or "{}")
-    return data if isinstance(data, dict) and data.get("address") else None
-
-
-def _address(value):
-    if not isinstance(value, str) or not _ADDRESS.fullmatch(value):
-        raise bobtv.ActionError(f"Refusing an unexpected window address: {value!r}")
-    return value
-
-
-def focus(address):
-    hyprctl("dispatch", 'hl.dsp.focus({ window = "address:' + _address(address) + '" })')
-
-
-def make_fullscreen():
-    """Fullscreen the active window. Call only straight after focus()."""
-    hyprctl("dispatch", 'hl.dsp.window.fullscreen({ mode = "fullscreen" })')
-
-
-def close(address):
-    hyprctl("dispatch", 'hl.dsp.window.close({ window = "address:' + _address(address) + '" })')
-
-
 def open_camera(url):
     subprocess.Popen(
         ["chromium", "--user-data-dir=" + str(HOME_PROFILE), "--new-window", url],
@@ -82,13 +43,28 @@ def open_camera(url):
     )
 
 
-def wait_for_new_window(before, timeout=10, sleep=time.sleep):
-    for _ in range(int(timeout / 0.25)):
-        fresh = sorted(set(clients()) - set(before))
-        if fresh:
-            return fresh[0]
-        sleep(0.25)
-    return None
+def media(action):
+    """Omarchy's own media control: status, pause or play. Returns its output, or None."""
+    try:
+        result = subprocess.run(["omarchy-shell", "media", action], capture_output=True, text=True, timeout=5)
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    return result.stdout.strip() if result.returncode == 0 else None
+
+
+def media_playing():
+    """True only when Omarchy reports something actually playing."""
+    try:
+        return json.loads(media("status") or "{}").get("playing") is True
+    except ValueError:
+        return False
+
+
+def pause_playback():
+    """Pause whatever is playing on BobTV. True if something was paused."""
+    if media_playing() and media("pause") == "ok":
+        return True
+    return False
 
 
 def show(config, state_dir, sleep=time.sleep, clock=time.monotonic):
@@ -106,50 +82,58 @@ def show(config, state_dir, sleep=time.sleep, clock=time.monotonic):
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError:
             return "The front door is already on screen."
-        before = clients()
-        previous = active_window()
+        before = windows.clients()
+        previous = windows.active_window()
+        paused = pause_playback()
         open_camera(settings["url"])
-        window = wait_for_new_window(before, sleep=sleep)
+        window = windows.wait_for_new_window(before, sleep=sleep)
         if window is None:
+            if paused:
+                media("play")
             raise bobtv.ActionError("The camera window never appeared.")
-        # The camera goes in front first; the TV steps take several seconds.
-        focus(window)
-        if not clients().get(window, {}).get("fullscreen"):
-            make_fullscreen()
-        deadline = clock() + settings["seconds"]
+        windows.remember(state_dir / CAMERA_FILE, window)
+        try:
+            # The camera goes in front first; the TV steps take several seconds.
+            windows.focus(window)
+            if not windows.clients().get(window, {}).get("fullscreen"):
+                windows.make_fullscreen()
+            deadline = clock() + settings["seconds"]
 
-        was_off = False
-        if bobtv.tv_settings(config)["enabled"]:
-            try:
-                # Only a definite "standby" counts as off. When the TV will not say,
-                # never turn it off afterwards: someone may be watching.
-                was_off = bobtv.tv_power(config) == "standby"
-            except (bobtv.ActionError, OSError) as exc:
-                _log.warning("Doorbell: could not read TV power (%s)", exc)
-            try:
-                bobtv.tv_wake(config)
-            except (bobtv.ActionError, OSError) as exc:
-                _log.warning("Doorbell: could not wake the TV (%s)", exc)
+            was_off = False
+            if bobtv.tv_settings(config)["enabled"]:
+                try:
+                    # Only a definite "standby" counts as off. When the TV will not
+                    # say, never turn it off afterwards: someone may be watching.
+                    was_off = bobtv.tv_power(config) == "standby"
+                except (bobtv.ActionError, OSError) as exc:
+                    _log.warning("Doorbell: could not read TV power (%s)", exc)
+                try:
+                    bobtv.tv_wake(config)
+                except (bobtv.ActionError, OSError) as exc:
+                    _log.warning("Doorbell: could not wake the TV (%s)", exc)
 
-        sleep(max(0, deadline - clock()))
+            sleep(max(0, deadline - clock()))
 
-        # If someone closed the camera themselves they are using the TV, so leave
-        # the room exactly as they left it.
-        still_open = window in clients()
-        if not still_open:
-            return "The camera was closed by hand; nothing else changed."
-        close(window)
-        if previous and previous["address"] in clients():
-            focus(previous["address"])
-            if previous.get("fullscreen"):
-                make_fullscreen()
-        if was_off:
-            try:
-                bobtv.tv_standby(config)
-            except (bobtv.ActionError, OSError) as exc:
-                _log.warning("Doorbell: could not put the TV back to standby (%s)", exc)
-            return "Showed the front door, then put the TV back to standby."
-        return "Showed the front door."
+            # If someone closed the camera themselves (or pressed Home) they are
+            # using the TV, so leave the room exactly as they left it.
+            if window not in windows.clients():
+                return "The camera was closed by hand; nothing else changed."
+            windows.close(window)
+            if previous and previous["address"] in windows.clients():
+                windows.focus(previous["address"])
+                if previous.get("fullscreen"):
+                    windows.make_fullscreen()
+            if paused:
+                media("play")
+            if was_off:
+                try:
+                    bobtv.tv_standby(config)
+                except (bobtv.ActionError, OSError) as exc:
+                    _log.warning("Doorbell: could not put the TV back to standby (%s)", exc)
+                return "Showed the front door, then put the TV back to standby."
+            return "Showed the front door, then resumed playback." if paused else "Showed the front door."
+        finally:
+            windows.forget(state_dir / CAMERA_FILE)
 
 
 def run_quietly(config, state_dir):

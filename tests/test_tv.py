@@ -261,7 +261,8 @@ class LaunchIntegrationTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.state = Path(self.temp.name)
-        for target in ("bobtv.shutil.which", "bobtv.ensure_region", "bobtv.subprocess.Popen"):
+        for target in ("bobtv.shutil.which", "bobtv.ensure_region", "bobtv.subprocess.Popen",
+                       "bobtv.window_snapshot", "bobtv.close_show"):
             patcher = patch(target)
             self.addCleanup(patcher.stop)
             mock = patcher.start()
@@ -269,6 +270,8 @@ class LaunchIntegrationTests(unittest.TestCase):
                 mock.return_value = "/usr/bin/tool"
             if target.endswith("Popen"):
                 mock.return_value.wait.return_value = 0
+            if target.endswith(("window_snapshot", "close_show")):
+                mock.return_value = None
 
     @patch("bobtv.tv_wake")
     def test_launching_wakes_the_tv(self, wake):
