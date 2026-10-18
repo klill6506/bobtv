@@ -10,7 +10,7 @@
 - 354 Arch package updates pending - not applied.
 
 ## Open items (from docs/status.md)
-- Real doorbell press test (needs a Home Assistant restart to load `rest_command`); Ring live picture.
+- ~~Real doorbell press test~~ DONE 10/18 - worked (Ken).
 - Physical remote power-button test (first press from an idle remote only wakes it).
 - Roku handoff experiments (`scripts/cec_try.py`, 9/30).
 
@@ -19,3 +19,6 @@
 - RESULT: third try succeeded (1st: OMARCHY_PATH unset under tmux - use `env OMARCHY_PATH=/usr/share/omarchy omarchy-update`; 2nd: chatgpt-bin download stalled). Ken rebooted 15:38. Now kernel 7.2.8, libcec 8.1.7 (CEC `pow` works), tailscale 1.104, 0 updates pending. Services, HA (2026.9.2) and home page OK.
 - Ring push listener crashed on HA start (`firebase_messaging ... Incorrect padding, shutting down FcmPushClient`) - ding events likely won't arrive. Next: Ken reloads the Ring integration, then a real doorbell press.
 - Harmless boot noise: systemd 262 TPM NvPCR units fail (no TPM use); sshd failed once at boot then started.
+- FIX that worked: Reload did NOT clear the FcmPushClient 'Incorrect padding' crash; deleting and re-adding the Ring integration did (fresh push keys). `event.front_door_ding` kept its name. **Real doorbell press 16:3x 10/18: TV woke and showed the camera (Ken confirmed).** Last ding before that: Oct 3 - the listener had probably been dead since ~Sep 29.
+- Ken: no automatic updates and no weekly update text (10/18). Update by hand with Claude: `ssh ... tmux new -A -s update env OMARCHY_PATH=/usr/share/omarchy omarchy-update`, Ken types y + sudo password, reboot at the TV (LUKS passphrase).
+- Ken forgot his Home Assistant login (10/18) and got back in; if it happens again: `sudo docker exec homeassistant hass --script auth -c /config change_password USER NEW`.
